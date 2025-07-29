@@ -19,11 +19,12 @@ public:
 		using reference = I&;
 
 		//constructors
+		friend class Sequence<T>;//access to I* ptr
 		template <typename friendo> friend struct Iterator;
 		Iterator(I* p) :ptr(p) {}
-		template<typename U, typename = std::enable_if_t<std::is_convertible_v<U*, T*>>>
+		template<typename U, typename = std::enable_if_t<std::is_convertible_v<U*, T*>>>//regular to const
 		Iterator(const Iterator<U>& other) : ptr(other.ptr) {}
-		template<typename U, typename = std::enable_if_t<std::is_convertible_v<U*, T*>>>
+		template<typename U, typename = std::enable_if_t<std::is_convertible_v<U*, T*>>>//regualar to const
 		Iterator& operator=(const Iterator<U>& other) {
 			ptr = other.ptr;
 			return *this;
@@ -36,7 +37,7 @@ public:
 		pointer operator->()const {
 			return ptr;
 		}
-		reference operator[](long long n)const {
+		reference operator[](difference_type n)const {
 			return ptr[n];
 		}
 
@@ -134,25 +135,32 @@ private:
 
 	void grow() {
 		size_t newCap = (cap == 0) ? 1 : cap * 2;//assign new size
-		void* bytes = ::operator new(newCap * sizeof(T));//allocate raw bytes
-		T* newArray = static_cast<T*>(bytes);//cast it to the actual type
+		
+		T* newArray = memAlloc(newCap);
+
+		//void* bytes = ::operator new(newCap * sizeof(T));//allocate raw bytes
+		//T* newArray = static_cast<T*>(bytes);//cast it to the actual type
 		
 		std::uninitialized_move(array, array + mSize, newArray);//optimized??
 		//vs
 		//for (size_t i = 0; i < mSize; i++)
 		//	new (newArray + i) T(std::move(array[i]));//use rvalue move from old sequence to new
 			
-		::operator delete(array, cap * sizeof(T));//type T MUST have noexcept move constructor to ignore calling .~T(), thus we can get away with only deleting the memory
+		//::operator delete(array, cap * sizeof(T));//type T MUST have noexcept move constructor to ignore calling .~T(), thus we can get away with only deleting the memory
+		memFree();
 
 		array = newArray;
 		cap = newCap;
 	}
+	/*
+	* DEPRICATED
 	void copyFormDirty(const Sequence& rhs) {
 		//almost exactly the same as grow() except it makes deep copies
 		mSize = rhs.mSize;
 		cap = rhs.cap;
-		void* bytes = ::operator new(rhs.cap * sizeof(T));
-		T* newArray = static_cast<T*>(bytes);
+		//void* bytes = ::operator new(rhs.cap * sizeof(T));
+		//T* newArray = static_cast<T*>(bytes);
+		T* newArray = memAlloc(rhs.cap);
 
 		std::uninitialized_copy(rhs.begin(), rhs.end(), newArray);
 		////vs
@@ -161,19 +169,25 @@ private:
 		//}
 		array = newArray;
 	}
-	void clearAndDelete() {
-		clear();
-		::operator delete(array, cap * sizeof(T));
-		array = nullptr;
+	*/
+	T* memAlloc(size_t amount) {
+		void* bytes = ::operator new(amount * sizeof(T));
+		return static_cast<T*>(bytes);
+	}
+	void memFree() {
+		if (array) {
+			::operator delete(array, cap * sizeof(T));
+			array = nullptr;
+			cap = 0;
+		}
 	}
 	T* eraseImpl(T* pos) {
 		assert(pos >= array && pos < array + mSize);
 		std::move(pos + 1, array + mSize, pos);//shift all elements
 		array[mSize - 1].~T();
 		--mSize;
-		if (pos == (array + mSize))
-			return array + mSize;
-		return pos;
+		
+		return (pos == raw_end()) ? raw_end() : pos;
 	}
 	T* eraseRangeImpl(T* first, T* last) {
 		assert(first >= array && first <= last && last <= (array + mSize));
@@ -181,41 +195,61 @@ private:
 		if (first == last) 
 			return first;
 		
-		T* end = array + mSize;
+		T* end = raw_end();
 
 		if (last == end) {
-			for (T* i = first; i != end; ++i)
-				i->~T();
+			std::destroy(first, end);
 			mSize = first - array;
-			return (array + mSize);
+			return raw_end();
 		}
 		//else
 		std::move(last, end, first);//shift all elements
-		T* destroyBegin = first + (end - last);
 
-		for (T* i = destroyBegin; i != end; ++i) {
-			i->~T();
-			--mSize;
-		}
+		T* destroyBegin = first + (end - last);
+		std::destroy(destroyBegin, end);
+		mSize -= (end - destroyBegin);
+
+		//for (T* i = destroyBegin; i != end; ++i) {
+		//	i->~T();
+		//	--mSize;
+		//}
 		return first;
+	}
+	T* raw_begin() {
+		return array;
+	}
+	T* raw_end() {
+		return array + mSize;
 	}
 
 public:
+
 	Sequence() :array(nullptr), mSize(0), cap(0) {}
 	Sequence(const Sequence& rhs) {
-		copyFormDirty(rhs);
+		T* newArray = memAlloc(rhs.cap);
+		std::uninitialized_copy(rhs.begin(), rhs.end(), newArray);
+		mSize = rhs.mSize;
+		cap = rhs.cap;
+		array = newArray;
 	}
 	Sequence& operator=(const Sequence& rhs) {
 		if (this == &rhs)
 			return *this;
-		clearAndDelete();
-		copyFormDirty(rhs);
+		clear();
+		memFree();
+		T* newArray = memAlloc(rhs.cap);
+		std::uninitialized_copy(rhs.begin(), rhs.end(), newArray);
+		mSize = rhs.mSize;
+		cap = rhs.cap;
+		array = newArray;
+		//copyFormDirty(rhs);
 		return *this;
 	}
 
 
 	~Sequence() {
-		clearAndDelete();
+		clear();
+		memFree();
 	}
 
 	bool isEmpty()const {
@@ -230,13 +264,15 @@ public:
 	void add(const T& value) {
 		if (mSize == cap)
 			grow();
-		new(array + mSize) T(value);//beginning of the sequence+ptr arithmetic index, place the value there
+		std::construct_at(raw_end(), value);
+		//new(array + mSize) T(value);//beginning of the sequence+ptr arithmetic index, place the value there
 		++mSize;
 	}
 	void add(T&& value) {
 		if (mSize == cap)
 			grow();
-		new(array + mSize) T(std::move(value));//beginning of the sequence+ptr arithmetic index, place the value there
+		std::construct_at(raw_end(), std::move(value));
+		//new(array + mSize) T(std::move(value));//beginning of the sequence+ptr arithmetic index, place the value there
 		++mSize;
 	}
 
@@ -249,9 +285,10 @@ public:
 	void clear() {
 		if (mSize == 0)
 			return;
-		for (size_t i = mSize; i-- > 0;) {
-			array[i].~T();
-		}
+		std::destroy(raw_begin(), raw_end());
+		//for (size_t i = mSize; i-- > 0;) {
+		//	array[i].~T();
+		//}
 		mSize = 0;
 	}
 
@@ -266,8 +303,13 @@ public:
 
 	void remove(const_iterator pos) {
 		assert(pos >= begin() && pos < end());
-		*pos = std::move(array[mSize - 1]);
-		array[mSize - 1].~T();
+		T* dest = const_cast<T*>(pos.ptr);
+		std::destroy_at(dest);
+		std::construct_at(dest, std::move(array[mSize - 1]));
+		std::destroy_at(raw_end() - 1);
+		//*dest = std::move(array[mSize - 1]);
+		//*pos = std::move(array[mSize - 1]);
+		//array[mSize - 1].~T();
 		--mSize;
 	}
 	void remove(iterator pos) {
@@ -275,21 +317,22 @@ public:
 	}
 	template <typename Pred>
 	void remove(Pred predicate) {
+		//LEFT OFF HERE FOR TESTING, BUT THIS IS SHIT ALREADY, REMOVE_IF DOES NOT DO WHAT I WANT IT
 		auto it = std::remove_if(begin(), end(), predicate);
 		erase(it, end());
 	}
 
 	const_iterator erase(const_iterator pos) {
-		return const_iterator(eraseImpl(const_cast<T*>(&*pos)));//reference to the address casted to T
+		return const_iterator(eraseImpl(const_cast<T*>(pos.ptr)));
 	}
 	iterator erase(iterator pos) {
-		return iterator(eraseImpl(&*pos));
+		return iterator(eraseImpl(pos.ptr));
 	}
 	iterator erase(const_iterator first, const_iterator last) {
-		return const_iterator(eraseRangeImpl(const_cast<T*>(&*first), const_cast<T*>(&*last)));
+		return const_iterator(eraseRangeImpl(const_cast<T*>(first.ptr), const_cast<T*>(last.ptr)));
 	}
 	iterator erase(iterator first, iterator last) {
-		return iterator(eraseRangeImpl(&*first, &*last));
+		return iterator(eraseRangeImpl(first.ptr, last.ptr));
 	}
 
 

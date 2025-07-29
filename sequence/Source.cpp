@@ -398,12 +398,7 @@ void poopOut25(std::vector<Rect>& vec, Sequence<Rect>& seq) {
     }
 }
 void round4Tests_sequence_erase() {
-    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
-    _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
-    _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
-    _CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
-    _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
-    _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+
 
     {
         std::cout << "\nTEST ERASE 5th ELEMENT:\n";
@@ -493,12 +488,6 @@ void round4Tests_sequence_erase() {
 }
 
 void round5Tests_sequence_erase_range() {
-    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
-    _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
-    _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
-    _CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
-    _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
-    _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
 
     {
         std::cout << "\nTEST ERASE RANGE FIRST 10:\n";
@@ -589,6 +578,43 @@ void round5Tests_sequence_erase_range() {
     _CrtDumpMemoryLeaks();
 }
 
+void round6Tests_sequence_remove() {
+    class VecRemoveIfPred {
+    public:
+        bool operator()(const Rect& r) {
+            return r.x == 5;
+        }
+    };
+    {
+        Sequence<Rect> seq;
+        std::vector<Rect> vec;
+        poopOut25(vec, seq);
+
+        auto seqit = seq.begin() + 5;
+        auto vecit = vec.begin() + 5;
+
+        std::cout << "\n\nTESTING REMOVING\n\n";
+        for (int i = 0; i < seq.size(); i++) {
+            std::cout << "seq: " << seq[i].x << "\tvec: " << vec[i].x << '\n';
+        }
+        std::cout << "seq it: " << seqit->x << "\tvec it: " << vecit->x << '\n';
+        seq.remove(seqit);
+        auto vecrem = std::remove_if(vec.begin(), vec.end(), VecRemoveIfPred{});
+        vec.erase(vecrem);
+        std::cout << "\nINTENT IS TO MOVE THE LAST ELEMENT FOR BOTH VEC AND SEQ TO THE PREVIOUS POSITION\n";
+
+        auto seqit2 = seq.begin() + 5;
+        auto vecit2 = vec.begin() + 5;
+
+        for (int i = 0; i < seq.size(); i++) {
+            std::cout << "seq: " << seq[i].x << "\tvec: " << vec[i].x << '\n';
+        }
+        std::cout << "seq it: " << seqit2->x << "\tvec it: " << vecit2->x << '\n';
+    }
+    _CrtDumpMemoryLeaks();
+
+}
+
 int main() {
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
@@ -601,41 +627,9 @@ int main() {
     round3Tests_sequence_adding_erasing();
     round4Tests_sequence_erase();
     round5Tests_sequence_erase_range();
+    round6Tests_sequence_remove();
 
-    {
-        Sequence<int> is;
-        is.add(1);
-        is.add(2);
-        is.add(3);
-        is.add(4);
-    
-        auto it = is.begin();
-        auto it2 = is.begin()+2;
-        auto itc = is.cbegin() + 1;
-        it2 = it;
-        std::cout << "it: " << *it << '\n';
-        std::cout << "itc:" << *itc << '\n';
-        std::cout << '\n';
-        std::cout << "it == itc: " << (itc == it) << '\n';
-        itc = it;
-        std::cout << '\n';
-        std::cout << "it == itc: " << (it == itc) << '\n';
-    }
-    std::cout << "\nVECTOR\n";
-    {
-        std::vector<int> is = { 1,2,3,4 };
-    
-        auto it = is.begin();
-        auto itc = is.cbegin() + 1;
-    
-        std::cout << "it: " << *it << '\n';
-        std::cout << "itc:" << *itc << '\n';
-        std::cout << '\n';
-        std::cout << "it == itc: " << (it == itc) << '\n';
-        itc = it;
-        std::cout << '\n';
-        std::cout << "it == itc: " << (it == itc) << '\n';
-    }
+
     _CrtDumpMemoryLeaks();
 
     return 0;
