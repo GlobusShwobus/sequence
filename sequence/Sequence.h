@@ -311,10 +311,16 @@ public:
 
 	void remove(const_iterator pos) {
 		assert(pos >= begin() && pos < end());
-		pointer dest = const_cast<pointer>(pos.ptr);
-		std::destroy_at(dest);
-		std::construct_at(dest, std::move(array[mSize - 1]));
-		std::destroy_at(raw_end() - 1);
+		//pointer dest = const_cast<pointer>(pos.ptr);
+		
+		iterator dest(const_cast<pointer>(pos.ptr));//hahalol
+		iterator last = end() - 1;
+		*dest = std::move(*last);
+		std::destroy_at(last.ptr);
+
+		//std::destroy_at(dest);
+		//std::construct_at(dest, std::move(array[mSize - 1]));
+		//std::destroy_at(raw_end() - 1);
 		//*dest = std::move(array[mSize - 1]);
 		//*pos = std::move(array[mSize - 1]);
 		//array[mSize - 1].~T();
@@ -323,11 +329,32 @@ public:
 	void remove(iterator pos) {
 		remove(const_iterator(pos));
 	}
-	template <typename Pred>
-	void remove(Pred predicate) {
-		//LEFT OFF HERE FOR TESTING, BUT THIS IS SHIT ALREADY, REMOVE_IF DOES NOT DO WHAT I WANT IT
-		auto it = std::remove_if(begin(), end(), predicate);
-		erase(it, end());
+	template <typename UnaryPred>
+	iterator remove(UnaryPred predicate) {
+
+		iterator last = end() - 1;
+		iterator current = begin();
+
+		//if predicate is true, move last element to current then move the last pointer
+		while (current <= last) {
+
+			if (predicate(*current)) {
+				*current = std::move(*last);
+				--last;
+			}
+			else {
+				++current;
+			}
+		}
+		size_type newSize = last - begin() + 1;
+
+		//bulk delete everything from last to end then apply new size
+		if (newSize < mSize) {
+			std::destroy(last.ptr + 1, end().ptr);
+			mSize = newSize;
+		}
+
+		return end();
 	}
 
 	const_iterator erase(const_iterator pos) {

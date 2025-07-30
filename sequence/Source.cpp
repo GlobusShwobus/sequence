@@ -397,6 +397,20 @@ void poopOut25(std::vector<Rect>& vec, Sequence<Rect>& seq) {
         seq.add({ i,i,i,i });
     }
 }
+void poopOutXevery5(std::vector<int>& vec, Sequence<int>& seq, int X) {
+
+    for (int i = 1; i < 26; ++i) {
+        if (i%5==0) {
+            vec.push_back(X);
+            seq.add(X);
+        }
+        else {
+            vec.push_back(i);
+            seq.add(i);
+        }
+    }
+}
+
 void round4Tests_sequence_erase() {
 
 
@@ -612,7 +626,45 @@ void round6Tests_sequence_remove() {
         std::cout << "seq it: " << seqit2->x << "\tvec it: " << vecit2->x << '\n';
     }
     _CrtDumpMemoryLeaks();
+}
 
+void round7Tests_sequence_remove_bulk(int predVal) {
+    class RemoveX {
+        int x;
+    public:
+        RemoveX(int x) :x(x) {}
+        bool operator()(const int y) {
+            return x == y;
+        }
+    };
+
+    {
+        Sequence<int> seq;
+        std::vector<int> vec;
+        poopOutXevery5(vec, seq, predVal);
+
+        std::cout << "\nBULK REMOVE: 7\n\n";
+
+        std::cout << "BEFORE:\n";
+        for (int i = 0; i < seq.size(); i++) {
+            std::cout << "seq: " << seq[i] << "\tvec: " << vec[i] << '\n';
+        }
+
+        RemoveX pred(predVal);
+        auto vecIt = std::remove_if(vec.begin(), vec.end(), pred);
+        vec.erase(vecIt, vec.end());
+        seq.remove(pred);
+
+
+        std::sort(vec.begin(), vec.end());
+        std::sort(seq.begin(), seq.end());
+        std::cout << "\nAFTER:\n";
+        for (int i = 0; i < seq.size(); i++) {
+            std::cout << "seq: " << seq[i] << "\tvec: " << vec[i] << '\n';
+        }
+    }
+
+    _CrtDumpMemoryLeaks();
 }
 
 int main() {
@@ -628,6 +680,7 @@ int main() {
     round4Tests_sequence_erase();
     round5Tests_sequence_erase_range();
     round6Tests_sequence_remove();
+    round7Tests_sequence_remove_bulk(0);
 
 
     _CrtDumpMemoryLeaks();
