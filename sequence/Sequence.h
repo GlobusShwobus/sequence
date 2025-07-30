@@ -9,19 +9,28 @@ template <typename T>
 class Sequence {
 
 public:
+	using value_type = T;
+	using pointer = T*;
+	using const_pointer = const T*;
+	using reference = T&;
+	using const_reference = const T&;
+	using size_type = std::size_t;
+
 	template<typename I>
 	struct Iterator {
 	public:
-		using iterator_category = std::random_access_iterator_tag;
 		using value_type = I;
-		using difference_type = std::ptrdiff_t;
 		using pointer = I*;
 		using reference = I&;
+		using iterator_category = std::random_access_iterator_tag;
+		using difference_type = std::ptrdiff_t;
+		using self_type = Iterator;
+
 
 		//constructors
-		friend class Sequence<T>;//access to I* ptr
+		friend class Sequence<T>;//iterator is dependant on sequence therefor T not I
 		template <typename friendo> friend struct Iterator;
-		Iterator(I* p) :ptr(p) {}
+		Iterator(pointer p) :ptr(p) {}
 		template<typename U, typename = std::enable_if_t<std::is_convertible_v<U*, T*>>>//regular to const
 		Iterator(const Iterator<U>& other) : ptr(other.ptr) {}
 		template<typename U, typename = std::enable_if_t<std::is_convertible_v<U*, T*>>>//regualar to const
@@ -30,7 +39,6 @@ public:
 			return *this;
 		}
 		//########################
-
 		reference operator*()const {
 			return *ptr;
 		}
@@ -41,40 +49,40 @@ public:
 			return ptr[n];
 		}
 
-		Iterator& operator++() {
+		self_type& operator++() {
 			++ptr;
 			return *this;
 		}
-		Iterator operator++(int) {
-			Iterator temp = *this;
+		self_type operator++(int) {
+			self_type temp = *this;
 			++ptr;
 			return temp;
 		}
-		Iterator& operator--() {
+		self_type& operator--() {
 			--ptr;
 			return *this;
 		}
-		Iterator operator--(int) {
-			Iterator temp = *this;
+		self_type operator--(int) {
+			self_type temp = *this;
 			--ptr;
 			return temp;
 		}
 
-		Iterator& operator+=(difference_type n) {
+		self_type& operator+=(difference_type n) {
 			ptr += n;
 			return *this;
 		}
-		Iterator& operator-=(difference_type n) {
+		self_type& operator-=(difference_type n) {
 			ptr -= n;
 			return *this;
 		}
-		Iterator operator+(difference_type n)const {
-			return Iterator(ptr + n);
+		self_type operator+(difference_type n)const {
+			return self_type(ptr + n);
 		}
-		Iterator operator-(difference_type n)const {
-			return Iterator(ptr - n);
+		self_type operator-(difference_type n)const {
+			return self_type(ptr - n);
 		}
-		difference_type operator-(const Iterator& rhs)const {
+		difference_type operator-(const self_type& rhs)const {
 			return ptr - rhs.ptr;
 		}
 		template<typename U>
@@ -129,19 +137,19 @@ public:
 
 private:
 
-	T* array = nullptr;
-	size_t mSize;
-	size_t cap;
+	pointer array = nullptr;
+	size_type mSize;
+	size_type cap;
 
 	void grow() {
-		size_t newCap = (cap == 0) ? 1 : cap * 2;//assign new size
+		size_type newCap = (cap == 0) ? 1 : cap * 2;//assign new size
 		
-		T* newArray = memAlloc(newCap);
+		pointer newArray = memAlloc(newCap);
 
 		//void* bytes = ::operator new(newCap * sizeof(T));//allocate raw bytes
 		//T* newArray = static_cast<T*>(bytes);//cast it to the actual type
 		
-		std::uninitialized_move(array, array + mSize, newArray);//optimized??
+		std::uninitialized_move(raw_begin(), raw_end(), newArray);//optimized??
 		//vs
 		//for (size_t i = 0; i < mSize; i++)
 		//	new (newArray + i) T(std::move(array[i]));//use rvalue move from old sequence to new
@@ -170,32 +178,32 @@ private:
 		array = newArray;
 	}
 	*/
-	T* memAlloc(size_t amount) {
-		void* bytes = ::operator new(amount * sizeof(T));
-		return static_cast<T*>(bytes);
+	pointer memAlloc(size_type amount) {
+		void* bytes = ::operator new(amount * sizeof(value_type));
+		return static_cast<pointer>(bytes);
 	}
 	void memFree() {
 		if (array) {
-			::operator delete(array, cap * sizeof(T));
+			::operator delete(array, cap * sizeof(value_type));
 			array = nullptr;
 			cap = 0;
 		}
 	}
-	T* eraseImpl(T* pos) {
+	pointer eraseImpl(pointer pos) {
 		assert(pos >= array && pos < array + mSize);
-		std::move(pos + 1, array + mSize, pos);//shift all elements
+		std::move(pos + 1, raw_end(), pos);//shift all elements
 		array[mSize - 1].~T();
 		--mSize;
 		
 		return (pos == raw_end()) ? raw_end() : pos;
 	}
-	T* eraseRangeImpl(T* first, T* last) {
+	pointer eraseRangeImpl(pointer first, pointer last) {
 		assert(first >= array && first <= last && last <= (array + mSize));
 
 		if (first == last) 
 			return first;
 		
-		T* end = raw_end();
+		pointer end = raw_end();
 
 		if (last == end) {
 			std::destroy(first, end);
@@ -205,7 +213,7 @@ private:
 		//else
 		std::move(last, end, first);//shift all elements
 
-		T* destroyBegin = first + (end - last);
+		pointer destroyBegin = first + (end - last);
 		std::destroy(destroyBegin, end);
 		mSize -= (end - destroyBegin);
 
@@ -215,10 +223,10 @@ private:
 		//}
 		return first;
 	}
-	T* raw_begin() {
+	pointer raw_begin() {
 		return array;
 	}
-	T* raw_end() {
+	pointer raw_end() {
 		return array + mSize;
 	}
 
@@ -226,7 +234,7 @@ public:
 
 	Sequence() :array(nullptr), mSize(0), cap(0) {}
 	Sequence(const Sequence& rhs) {
-		T* newArray = memAlloc(rhs.cap);
+		pointer newArray = memAlloc(rhs.cap);
 		std::uninitialized_copy(rhs.begin(), rhs.end(), newArray);
 		mSize = rhs.mSize;
 		cap = rhs.cap;
@@ -237,7 +245,7 @@ public:
 			return *this;
 		clear();
 		memFree();
-		T* newArray = memAlloc(rhs.cap);
+		pointer newArray = memAlloc(rhs.cap);
 		std::uninitialized_copy(rhs.begin(), rhs.end(), newArray);
 		mSize = rhs.mSize;
 		cap = rhs.cap;
@@ -255,13 +263,13 @@ public:
 	bool isEmpty()const {
 		return mSize == 0;
 	}
-	size_t size()const {
+	size_type size()const {
 		return mSize;
 	}
-	size_t capacity()const {
+	size_type capacity()const {
 		return cap;
 	}
-	void add(const T& value) {
+	void add(const_reference value) {
 		if (mSize == cap)
 			grow();
 		std::construct_at(raw_end(), value);
@@ -277,7 +285,7 @@ public:
 	}
 
 	void pop_back() {
-		assert(mSize != 0);
+		assert(mSize > 0);
 		array[mSize-1].~T();
 		--mSize;
 	}
@@ -292,18 +300,18 @@ public:
 		mSize = 0;
 	}
 
-	T& operator[](size_t index) {
+	reference operator[](size_type index) {
 		assert(index < mSize);
 		return array[index];
 	}
-	const T& operator[](size_t index)const {
+	const_reference operator[](size_type index)const {
 		assert(index < mSize);
 		return array[index];
 	}
 
 	void remove(const_iterator pos) {
 		assert(pos >= begin() && pos < end());
-		T* dest = const_cast<T*>(pos.ptr);
+		pointer dest = const_cast<pointer>(pos.ptr);
 		std::destroy_at(dest);
 		std::construct_at(dest, std::move(array[mSize - 1]));
 		std::destroy_at(raw_end() - 1);
@@ -323,13 +331,13 @@ public:
 	}
 
 	const_iterator erase(const_iterator pos) {
-		return const_iterator(eraseImpl(const_cast<T*>(pos.ptr)));
+		return const_iterator(eraseImpl(const_cast<pointer>(pos.ptr)));
 	}
 	iterator erase(iterator pos) {
 		return iterator(eraseImpl(pos.ptr));
 	}
 	iterator erase(const_iterator first, const_iterator last) {
-		return const_iterator(eraseRangeImpl(const_cast<T*>(first.ptr), const_cast<T*>(last.ptr)));
+		return const_iterator(eraseRangeImpl(const_cast<pointer>(first.ptr), const_cast<pointer>(last.ptr)));
 	}
 	iterator erase(iterator first, iterator last) {
 		return iterator(eraseRangeImpl(first.ptr, last.ptr));
@@ -340,7 +348,7 @@ public:
 	TODO
 	resize
 	reserve
-	move constructor
+	rule of 5 constructor + initalizer list
 	THEN CAN CLEAN THE FUCK UP BEFORE OTHER FLUFF
 
 	emplace_back - i have no idea how to even but need to know ( && ? )
