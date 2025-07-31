@@ -667,6 +667,60 @@ void round7Tests_sequence_remove_bulk(int predVal) {
     _CrtDumpMemoryLeaks();
 }
 
+void round8Tests_sanity() {
+   /*
+    {
+        Sequence<float> flo;
+        flo.add(1);
+        auto floit = flo.begin();
+        auto floitc = flo.cbegin();
+
+        floit = floitc;
+        floitc = floit;
+
+        std::vector<float> vec = { 1 };
+
+        auto vecit = vec.begin();
+        auto vecitc = vec.cbegin();
+
+        vecit = vecitc;
+        vecitc = vecit;
+
+
+        floit = vecit;
+        vecit = floit;
+        floitc = vecit;
+        vecitc = floit;
+        floitc = vecitc;
+        vecitc = floitc;
+
+
+        Sequence<Rect> recs;
+        recs.add({ 1,1,1,1 });
+
+        std::vector<Rect> vecr = { {1,1,1,1} };
+
+        auto recit = recs.begin();
+        auto recitc = recs.cbegin();
+
+        auto vecitr = vecr.begin();
+        auto vecitrc = vecr.cbegin();
+
+
+        floit = recit;
+        vecit = vecitr;
+        recit = floit;
+        vecitr = vecit;
+
+        recitc = recit;
+        recit = recitc;
+
+        vecitr = vecitrc;
+        vecitrc = vecitr;
+    }
+    */
+}
+
 int main() {
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
@@ -681,6 +735,19 @@ int main() {
     round5Tests_sequence_erase_range();
     round6Tests_sequence_remove();
     round7Tests_sequence_remove_bulk(0);
+
+    
+   //{
+   //
+   //    std::vector<Rect> vecrec = { {1,1,1,1} };
+   //    float lol = 5;
+   //    std::vector<float>::iterator pepejam = &lol;
+   //
+   //    Sequence<float>::iterator mungus = &lol;
+   //
+   //
+   //}
+
 
 
     _CrtDumpMemoryLeaks();

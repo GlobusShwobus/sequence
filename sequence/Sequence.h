@@ -4,117 +4,19 @@
 #include <algorithm>
 #include <memory>
 
-
 template <typename T>
 class Sequence {
-
+private:
+	class Iterator;
+	class Const_Iterator;
 public:
 	using value_type = T;
 	using pointer = T*;
-	using const_pointer = const T*;
 	using reference = T&;
-	using const_reference = const T&;
 	using size_type = std::size_t;
 
-	template<typename I>
-	struct Iterator {
-	public:
-		using value_type = I;
-		using pointer = I*;
-		using reference = I&;
-		using iterator_category = std::random_access_iterator_tag;
-		using difference_type = std::ptrdiff_t;
-		using self_type = Iterator;
-
-
-		//constructors
-		friend class Sequence<T>;//iterator is dependant on sequence therefor T not I
-		template <typename friendo> friend struct Iterator;
-		Iterator(pointer p) :ptr(p) {}
-		template<typename U, typename = std::enable_if_t<std::is_convertible_v<U*, T*>>>//regular to const
-		Iterator(const Iterator<U>& other) : ptr(other.ptr) {}
-		template<typename U, typename = std::enable_if_t<std::is_convertible_v<U*, T*>>>//regualar to const
-		Iterator& operator=(const Iterator<U>& other) {
-			ptr = other.ptr;
-			return *this;
-		}
-		//########################
-		reference operator*()const {
-			return *ptr;
-		}
-		pointer operator->()const {
-			return ptr;
-		}
-		reference operator[](difference_type n)const {
-			return ptr[n];
-		}
-
-		self_type& operator++() {
-			++ptr;
-			return *this;
-		}
-		self_type operator++(int) {
-			self_type temp = *this;
-			++ptr;
-			return temp;
-		}
-		self_type& operator--() {
-			--ptr;
-			return *this;
-		}
-		self_type operator--(int) {
-			self_type temp = *this;
-			--ptr;
-			return temp;
-		}
-
-		self_type& operator+=(difference_type n) {
-			ptr += n;
-			return *this;
-		}
-		self_type& operator-=(difference_type n) {
-			ptr -= n;
-			return *this;
-		}
-		self_type operator+(difference_type n)const {
-			return self_type(ptr + n);
-		}
-		self_type operator-(difference_type n)const {
-			return self_type(ptr - n);
-		}
-		difference_type operator-(const self_type& rhs)const {
-			return ptr - rhs.ptr;
-		}
-		template<typename U>
-		bool operator==(const Iterator<U>& rhs)const noexcept {
-			return ptr == rhs.ptr;
-		}
-		template<typename U>
-		bool operator!=(const Iterator<U>& rhs)const noexcept {
-			return ptr != rhs.ptr;
-		}
-		template<typename U>
-		bool operator<(const Iterator<U>& rhs)const noexcept {
-			return ptr < rhs.ptr;
-		}
-		template<typename U>
-		bool operator>(const Iterator<U>& rhs)const noexcept {
-			return ptr > rhs.ptr;
-		}
-		template<typename U>
-		bool operator<=(const Iterator<U>& rhs)const noexcept {
-			return ptr <= rhs.ptr;
-		}
-		template<typename U>
-		bool operator>=(const Iterator<U>& rhs)const noexcept {
-			return ptr >= rhs.ptr;
-		}
-	private:
-		pointer ptr = nullptr;
-	};
-
-	using iterator = Iterator<T>;
-	using const_iterator = Iterator<const T>;
+	using iterator = Iterator;
+	using const_iterator = Const_Iterator;
 
 	iterator begin() {
 		return iterator(array);
@@ -141,43 +43,6 @@ private:
 	size_type mSize;
 	size_type cap;
 
-	void grow() {
-		size_type newCap = (cap == 0) ? 1 : cap * 2;//assign new size
-		
-		pointer newArray = memAlloc(newCap);
-
-		//void* bytes = ::operator new(newCap * sizeof(T));//allocate raw bytes
-		//T* newArray = static_cast<T*>(bytes);//cast it to the actual type
-		
-		std::uninitialized_move(raw_begin(), raw_end(), newArray);//optimized??
-		//vs
-		//for (size_t i = 0; i < mSize; i++)
-		//	new (newArray + i) T(std::move(array[i]));//use rvalue move from old sequence to new
-			
-		//::operator delete(array, cap * sizeof(T));//type T MUST have noexcept move constructor to ignore calling .~T(), thus we can get away with only deleting the memory
-		memFree();
-
-		array = newArray;
-		cap = newCap;
-	}
-	/*
-	* DEPRICATED
-	void copyFormDirty(const Sequence& rhs) {
-		//almost exactly the same as grow() except it makes deep copies
-		mSize = rhs.mSize;
-		cap = rhs.cap;
-		//void* bytes = ::operator new(rhs.cap * sizeof(T));
-		//T* newArray = static_cast<T*>(bytes);
-		T* newArray = memAlloc(rhs.cap);
-
-		std::uninitialized_copy(rhs.begin(), rhs.end(), newArray);
-		////vs
-		//for (size_t i = 0; i < mSize; i++) {
-		//	new (newArray + i) T(rhs.array[i]);
-		//}
-		array = newArray;
-	}
-	*/
 	pointer memAlloc(size_type amount) {
 		void* bytes = ::operator new(amount * sizeof(value_type));
 		return static_cast<pointer>(bytes);
@@ -189,53 +54,73 @@ private:
 			cap = 0;
 		}
 	}
-	pointer eraseImpl(pointer pos) {
-		assert(pos >= array && pos < array + mSize);
-		std::move(pos + 1, raw_end(), pos);//shift all elements
-		array[mSize - 1].~T();
-		--mSize;
-		
-		return (pos == raw_end()) ? raw_end() : pos;
-	}
-	pointer eraseRangeImpl(pointer first, pointer last) {
-		assert(first >= array && first <= last && last <= (array + mSize));
-
-		if (first == last) 
-			return first;
-		
-		pointer end = raw_end();
-
-		if (last == end) {
-			std::destroy(first, end);
-			mSize = first - array;
-			return raw_end();
-		}
-		//else
-		std::move(last, end, first);//shift all elements
-
-		pointer destroyBegin = first + (end - last);
-		std::destroy(destroyBegin, end);
-		mSize -= (end - destroyBegin);
-
-		//for (T* i = destroyBegin; i != end; ++i) {
-		//	i->~T();
-		//	--mSize;
-		//}
-		return first;
-	}
-	pointer raw_begin() {
+	pointer raw_begin()const {
 		return array;
 	}
-	pointer raw_end() {
+	pointer raw_end()const {
 		return array + mSize;
 	}
 
-public:
+	void grow() {
+		size_type newCap = (cap == 0) ? 1 : cap * 2;//assign new size
+		pointer newArray = memAlloc(newCap);		
+		std::uninitialized_move(raw_begin(), raw_end(), newArray);
+		memFree();
+		array = newArray;
+		cap = newCap;
+	}
+	pointer eraseImpl(const_iterator pos) {
+		assert(pos >= begin() && pos < end());
+		pointer ppos = const_cast<pointer>(pos.base());
+		std::move(ppos + 1, raw_end(), ppos);//shift all elements
+		array[mSize - 1].~T();
+		--mSize;
 
+		return (ppos == raw_end()) ? raw_end() : ppos;//ppos was not shifted but they array did get smaller, so raw_end() is a new value at this point
+	}
+	pointer eraseRangeImpl(const_iterator first, const_iterator last) {
+		assert(first >= begin() && first <= last && last <= end());
+
+		pointer pfirst = const_cast<pointer>(first.base());
+		pointer plast  = const_cast<pointer>(last.base());
+
+		if (pfirst == plast)
+			return pfirst;
+
+		pointer end = raw_end();
+
+		if (plast == end) {
+			std::destroy(pfirst, end);
+			mSize = pfirst - raw_begin();
+			return raw_end();
+		}
+		//else
+		std::move(plast, end, pfirst);//from plast, until end, into first
+
+		pointer destroyBegin = pfirst + (end - plast);
+		std::destroy(destroyBegin, end);
+		mSize -= (end - destroyBegin);
+
+		return pfirst;
+	}
+	pointer removeImpl(const_iterator pos) {
+		assert(pos >= begin() && pos < end());
+
+		pointer dest = const_cast<pointer>(pos.base());
+		pointer last = raw_end() - 1;
+
+		*dest = std::move(*last);
+		std::destroy_at(last);
+
+		--mSize;
+		return dest;
+	}
+public:
+	//CONSTRUCTORS
 	Sequence() :array(nullptr), mSize(0), cap(0) {}
 	Sequence(const Sequence& rhs) {
 		pointer newArray = memAlloc(rhs.cap);
-		std::uninitialized_copy(rhs.begin(), rhs.end(), newArray);
+		std::uninitialized_copy(rhs.raw_begin(), rhs.raw_end(), newArray);
 		mSize = rhs.mSize;
 		cap = rhs.cap;
 		array = newArray;
@@ -246,41 +131,32 @@ public:
 		clear();
 		memFree();
 		pointer newArray = memAlloc(rhs.cap);
-		std::uninitialized_copy(rhs.begin(), rhs.end(), newArray);
+		std::uninitialized_copy(rhs.raw_begin(), rhs.raw_end(), newArray);
 		mSize = rhs.mSize;
 		cap = rhs.cap;
 		array = newArray;
-		//copyFormDirty(rhs);
 		return *this;
 	}
-
-
 	~Sequence() {
 		clear();
 		memFree();
 	}
+	//#################################################
 
-	bool isEmpty()const {
-		return mSize == 0;
-	}
-	size_type size()const {
-		return mSize;
-	}
-	size_type capacity()const {
-		return cap;
-	}
-	void add(const_reference value) {
+	bool      isEmpty()const  { return mSize == 0; }
+	size_type size()const     { return mSize; }
+	size_type capacity()const { return cap; }
+
+	void add(const reference value) {
 		if (mSize == cap)
 			grow();
 		std::construct_at(raw_end(), value);
-		//new(array + mSize) T(value);//beginning of the sequence+ptr arithmetic index, place the value there
 		++mSize;
 	}
 	void add(T&& value) {
 		if (mSize == cap)
 			grow();
 		std::construct_at(raw_end(), std::move(value));
-		//new(array + mSize) T(std::move(value));//beginning of the sequence+ptr arithmetic index, place the value there
 		++mSize;
 	}
 
@@ -294,9 +170,6 @@ public:
 		if (mSize == 0)
 			return;
 		std::destroy(raw_begin(), raw_end());
-		//for (size_t i = mSize; i-- > 0;) {
-		//	array[i].~T();
-		//}
 		mSize = 0;
 	}
 
@@ -304,36 +177,22 @@ public:
 		assert(index < mSize);
 		return array[index];
 	}
-	const_reference operator[](size_type index)const {
+	const reference operator[](size_type index)const {
 		assert(index < mSize);
 		return array[index];
 	}
-
-	void remove(const_iterator pos) {
-		assert(pos >= begin() && pos < end());
-		//pointer dest = const_cast<pointer>(pos.ptr);
-		
-		iterator dest(const_cast<pointer>(pos.ptr));//hahalol
-		iterator last = end() - 1;
-		*dest = std::move(*last);
-		std::destroy_at(last.ptr);
-
-		//std::destroy_at(dest);
-		//std::construct_at(dest, std::move(array[mSize - 1]));
-		//std::destroy_at(raw_end() - 1);
-		//*dest = std::move(array[mSize - 1]);
-		//*pos = std::move(array[mSize - 1]);
-		//array[mSize - 1].~T();
-		--mSize;
+	const_iterator remove(const_iterator pos) {
+		return const_iterator(removeImpl(pos));
 	}
-	void remove(iterator pos) {
-		remove(const_iterator(pos));
+	iterator remove(iterator pos) {
+		return iterator(removeImpl(pos));
 	}
+
 	template <typename UnaryPred>
 	iterator remove(UnaryPred predicate) {
 
-		iterator last = end() - 1;
-		iterator current = begin();
+		pointer last = raw_end() - 1;
+		pointer current = raw_begin();
 
 		//if predicate is true, move last element to current then move the last pointer
 		while (current <= last) {
@@ -346,28 +205,27 @@ public:
 				++current;
 			}
 		}
-		size_type newSize = last - begin() + 1;
+		size_type newSize = last - raw_begin() + 1;
 
 		//bulk delete everything from last to end then apply new size
 		if (newSize < mSize) {
-			std::destroy(last.ptr + 1, end().ptr);
+			std::destroy(last + 1, raw_end());
 			mSize = newSize;
 		}
 
 		return end();
 	}
-
 	const_iterator erase(const_iterator pos) {
-		return const_iterator(eraseImpl(const_cast<pointer>(pos.ptr)));
+		return const_iterator(eraseImpl(pos));
 	}
 	iterator erase(iterator pos) {
-		return iterator(eraseImpl(pos.ptr));
+		return iterator(eraseImpl(pos));//implicit conversion to const_iterator should occur
 	}
 	iterator erase(const_iterator first, const_iterator last) {
-		return const_iterator(eraseRangeImpl(const_cast<pointer>(first.ptr), const_cast<pointer>(last.ptr)));
+		return const_iterator(eraseRangeImpl(first, last));
 	}
 	iterator erase(iterator first, iterator last) {
-		return iterator(eraseRangeImpl(first.ptr, last.ptr));
+		return iterator(eraseRangeImpl(first, last));
 	}
 
 
@@ -387,14 +245,81 @@ public:
 		*/
 };
 
+template<typename T>
+class Sequence<T>::Iterator {
+public:
+	using value_type = T;
+	using pointer = T*;
+	using reference = T&;
+	using iterator_category = std::random_access_iterator_tag;
+	using difference_type = std::ptrdiff_t;
+	using self_type = Iterator;
 
+	reference operator*() { return *ptr; }
+	pointer operator->() { return ptr; }
+	reference operator[](difference_type n) { return ptr[n]; }
+	const reference operator*() const { return *ptr; }
+	const pointer operator->() const { return ptr; }
+	const reference operator[](difference_type n) const { return ptr[n]; }
 
+	self_type& operator++() { ++ptr; return *this; }
+	self_type operator++(int) { self_type temp = *this; ++ptr; return temp; }
+	self_type& operator--() { --ptr; return *this; }
+	self_type operator--(int) { self_type temp = *this; --ptr; return temp; }
 
-//template <typename T>
-//SeqIterator<T> operator+(typename SeqIterator<T>::difference_type n, const SeqIterator<T>& it) {
-//	return it + n;
-//}
-//template<typename T>
-//ConstSeqIterator<T> operator+(typename ConstSeqIterator<T>::difference_type n, const ConstSeqIterator<T>& it) {
-//	return it + n;
-//}
+	self_type& operator+=(difference_type n) { ptr += n; return *this; }
+	self_type& operator-=(difference_type n) { ptr -= n; return *this; }
+	self_type operator+(difference_type n)const { return self_type(ptr + n); }
+	self_type operator-(difference_type n)const { return self_type(ptr - n); }
+	difference_type operator-(const self_type& rhs)const { return ptr - rhs.ptr; }
+
+	bool operator==(const self_type& rhs)const noexcept { return ptr == rhs.ptr; }
+	bool operator!=(const self_type& rhs)const noexcept { return ptr != rhs.ptr; }
+	bool operator<(const self_type& rhs)const noexcept { return ptr < rhs.ptr; }
+	bool operator>(const self_type& rhs)const noexcept { return ptr > rhs.ptr; }
+	bool operator<=(const self_type& rhs)const noexcept { return ptr <= rhs.ptr; }
+	bool operator>=(const self_type& rhs)const noexcept { return ptr >= rhs.ptr; }
+	explicit Iterator(pointer p) :ptr(p) {}
+	pointer base()const { return ptr; }
+private:
+	pointer ptr = nullptr;
+};
+
+template<typename T>
+class Sequence<T>::Const_Iterator {
+public:
+	using value_type = const T;
+	using pointer = const T*;
+	using reference = const T&;
+	using iterator_category = std::random_access_iterator_tag;
+	using difference_type = std::ptrdiff_t;
+	using self_type = Const_Iterator;
+
+	reference operator*()const { return *ptr; }
+	pointer operator->()const { return ptr; }
+	reference operator[](difference_type n)const { return ptr[n]; }
+
+	self_type& operator++() { ++ptr; return *this; }
+	self_type operator++(int) { self_type temp = *this; ++ptr; return temp; }
+	self_type& operator--() { --ptr; return *this; }
+	self_type operator--(int) { self_type temp = *this; --ptr; return temp; }
+
+	self_type& operator+=(difference_type n) { ptr += n; return *this; }
+	self_type& operator-=(difference_type n) { ptr -= n; return *this; }
+	self_type operator+(difference_type n)const { return self_type(ptr + n); }
+	self_type operator-(difference_type n)const { return self_type(ptr - n); }
+	difference_type operator-(const self_type& rhs)const { return ptr - rhs.ptr; }
+
+	bool operator==(const self_type& rhs)const noexcept { return ptr == rhs.ptr; }
+	bool operator!=(const self_type& rhs)const noexcept { return ptr != rhs.ptr; }
+	bool operator<(const self_type& rhs)const noexcept { return ptr < rhs.ptr; }
+	bool operator>(const self_type& rhs)const noexcept { return ptr > rhs.ptr; }
+	bool operator<=(const self_type& rhs)const noexcept { return ptr <= rhs.ptr; }
+	bool operator>=(const self_type& rhs)const noexcept { return ptr >= rhs.ptr; }
+
+	explicit Const_Iterator(pointer p) :ptr(p) {}
+	Const_Iterator(const Iterator& rp) :ptr(rp.base()) {}
+	pointer base()const { return ptr; }
+private:
+	pointer ptr = nullptr;
+};
