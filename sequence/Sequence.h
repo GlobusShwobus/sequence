@@ -60,11 +60,14 @@ private:
 	pointer raw_end()const {
 		return array + mSize;
 	}
+	size_type growthFactor(size_type input)const {
+		return input + (input / 2) + 1;
+	}
 
-	void grow() {
-		size_type newCap = (cap == 0) ? 1 : cap * 2;//assign new size
+	void grow(size_type newCap) {
 		pointer newArray = memAlloc(newCap);		
 		std::uninitialized_move(raw_begin(), raw_end(), newArray);
+		std::destroy(raw_begin(), raw_end());
 		memFree();
 		array = newArray;
 		cap = newCap;
@@ -149,13 +152,13 @@ public:
 
 	void add(const reference value) {
 		if (mSize == cap)
-			grow();
+			grow(growthFactor(cap));
 		std::construct_at(raw_end(), value);
 		++mSize;
 	}
 	void add(T&& value) {
 		if (mSize == cap)
-			grow();
+			grow(growthFactor(cap));
 		std::construct_at(raw_end(), std::move(value));
 		++mSize;
 	}
@@ -187,7 +190,6 @@ public:
 	iterator remove(iterator pos) {
 		return iterator(removeImpl(pos));
 	}
-
 	template <typename UnaryPred>
 	iterator remove(UnaryPred predicate) {
 
@@ -229,16 +231,54 @@ public:
 	}
 
 
+	void reserve(size_type newCap) {
+		if (newCap > cap) {
+			grow(newCap);
+		}
+	}
+	void shrinkToFit() {
+		if (cap > mSize) {
+			grow(mSize);
+		}
+	}
+	void resize(size_type count) {
+		if (count == mSize) {
+			return;
+		}
+		//if count is less than current capacity, then no need to reallocate
+		if (count <= cap) {
+			//if count is less than size, cut off the end, else add default constructed elements
+			if (count < mSize) {
+				std::destroy(raw_begin() + count, raw_end());
+			}
+			else {
+				std::uninitialized_default_construct(raw_end(), raw_begin() + count);
+			}
+			mSize = count;
+			return;
+		}
+		//need reallocation and since count > cap, its always greater than mSize
+		size_type newCap = growthFactor(count);
+		pointer newArray = memAlloc(newCap);
+
+		std::uninitialized_move(raw_begin(), raw_end(), newArray);
+		std::uninitialized_default_construct(newArray + mSize, newArray + count);
+
+		std::destroy(raw_begin(), raw_end());
+		memFree();
+		array = newArray;
+		cap = newCap;
+		mSize = count;
+	}
+
+
 	/*
 	TODO
-	resize
-	reserve
 	rule of 5 constructor + initalizer list
 	THEN CAN CLEAN THE FUCK UP BEFORE OTHER FLUFF
 
 	emplace_back - i have no idea how to even but need to know ( && ? )
 	append range (add multiple in one go, initalizer list?)
-	shrink to fit
 
 	IMPORTNAT:
 		static asserts to make sure object has default, copy and move constructors, otherwise == no bueno

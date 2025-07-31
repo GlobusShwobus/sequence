@@ -748,6 +748,11 @@ int main() {
    //
    //}
 
+    {
+        Sequence<int> lol;
+        lol.shrinkToFit();
+        lol.reserve(0);
+    }
 
 
     _CrtDumpMemoryLeaks();
