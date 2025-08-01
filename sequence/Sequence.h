@@ -274,15 +274,18 @@ public:
 
 	/*
 	TODO
+
 	rule of 5 constructor + initalizer list
-	THEN CAN CLEAN THE FUCK UP BEFORE OTHER FLUFF
-
+	static asserts to make sure object has default, copy and move constructors, otherwise == no bueno
+		
+	
 	emplace_back - i have no idea how to even but need to know ( && ? )
-	append range (add multiple in one go, initalizer list?)
+	at
+	data
 
-	IMPORTNAT:
-		static asserts to make sure object has default, copy and move constructors, otherwise == no bueno
-		*/
+	EXTRAS IF AT ALL:
+	append range (add multiple in one go, initalizer list?)
+	*/
 };
 
 template<typename T>

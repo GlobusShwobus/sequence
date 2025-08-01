@@ -13,7 +13,7 @@ struct Rect {
     int y;
     int w;
     int h;
-    Rect() = default;
+    Rect() :x(69), y(69), w(69), h(69) {}
     Rect(int x, int y, int w, int h) :x(x), y(y), w(w), h(h) {}
     Rect(const Rect& rhs) {
         x = rhs.x;
@@ -721,6 +721,382 @@ void round8Tests_sanity() {
     */
 }
 
+void round9Tests_reserve() {
+
+    {
+        std::cout << "RESERVE TEST 1:\n\n";
+
+        Sequence<int> seq;
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+        for (int i = 0; i < 99; i++) {
+            seq.add(i*i);
+        }
+        std::cout << "FILLED SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+
+        std::cout << "CALL RESERVE FOR EXTRA 10 ELEMENTS FROM SIZE\n";
+        std::cout << "POSSIBLY (PROBABLY) NO OPERATION SINCE CAP IS USUALLY LARGER THAN SIZE\n";
+        seq.reserve(seq.size() + 10);
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity()<<"\n\n";
+
+
+        std::cout << "CALL RESERVE FOR EXTRA 10 ELEMENTS FROM CAP\n";
+        std::cout << "SINCE CALL IS FROM CURRENT CAP, IT MUST EXPAND\n";
+        seq.reserve(seq.capacity() + 10);
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity()<<"\n\n";
+        std::cout << "#####################################################################\n\n";
+    }
+
+    {
+        std::cout << "RESERVE TEST 2:\n\n";
+
+        Sequence<int> seq;
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+        for (int i = 0; i < 99; i++) {
+            seq.add(i * i);
+        }
+        for (int i = seq.size(); i < seq.capacity(); i++) {
+            seq.add(i * i);
+        }
+
+        std::cout << "FILLED SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+
+        std::cout << "CALL RESERVE FOR EXTRA 10 ELEMENTS FROM SIZE\n";
+        std::cout << "ADDED ELEMENTS ALMOST/UPTO CAP, THEREFOR IT SHOULD EXPAND NOW\n";
+        seq.reserve(seq.size() + 10);
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+
+
+        std::cout << "CALL RESERVE FOR EXTRA 10 ELEMENTS FROM CAP\n";
+        std::cout << "SINCE CALL IS FROM CURRENT CAP, IT MUST EXPAND\n";
+        seq.reserve(seq.capacity() + 10);
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+        std::cout << "#####################################################################\n\n";
+    }
+
+    {
+        std::cout << "RESERVE TEST 3:\n\n";
+        Sequence<int> seq;
+
+        for (int i = 0; i < 99; i++) {
+            seq.add(i * i);
+        } 
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+        std::cout << "CALLING RESERVE WITH A LARGE NUMBER\n";
+        seq.reserve(seq.capacity() * seq.capacity() * seq.capacity());
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+    }
+
+    {
+        std::cout << "RESERVE TEST 4:\n\n";
+        Sequence<int> seq;
+
+        for (int i = 0; i < 99; i++) {
+            seq.add(i * i);
+        }
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+
+        std::cout << "CALLING RESERVE WITH A SMALLER NUMBER THAN CAPACITY\n";
+        seq.reserve(seq.capacity() - 10);
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+
+        std::cout << "CALLING RESERVE WITH A SMALLER NUMBER THAN SIZE\n";
+        seq.reserve(seq.size() - 10);
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+    }
+
+    {
+        std::cout << "RESERVE TEST 5:\n\n";
+        std::cout << "RESULT: CALLING RESERVE ON 0 AND UNDERFLOWING IT CRASHES BOTH SEQUENCE AND VECTOR THEREFOR PROGRAMMERS FAULT NOT MINE\n\n";
+
+       // std::vector<int> vec;
+       // std::cout << "INITIAL SIZE: " << vec.size() << "\tCAP: " << vec.capacity() << "\n\n";
+       // std::cout << "CALLING RESERVE ON EMPTY vector SMALLER THAN CAP\n";
+       // vec.reserve(vec.capacity() - 10);
+       // std::cout << "RESULT SIZE: " << vec.size() << "\tCAP: " << vec.capacity() << "\n\n";
+       // 
+       // Sequence<int> seq;
+       // 
+       // std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+       // std::cout << "CALLING RESERVE ON EMPTY SEQUENCE SMALLER THAN CAP\n";
+       // seq.reserve(seq.capacity() - 10);
+       // std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+    }
+
+    {
+        std::cout << "RESERVE TEST 6:\n\n";
+
+         Sequence<int> seq;
+         
+         std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+         std::cout << "CALLING RESERVE ON EMPTY SEQUENCE LARGER THAN CAP\n";
+         seq.reserve(seq.capacity() + 420);
+         std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+    }
+    {
+        std::cout << "RESERVE TEST 7:\n\n";
+
+        Sequence<int> seq;
+
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+        std::cout << "CALLING RESERVE ON EMPTY SEQUENCE EQUAL TO CAP\n";
+        seq.reserve(seq.capacity());
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+    }
+
+    _CrtDumpMemoryLeaks();
+}
+
+void round10Tests_shrinkToFit() {
+
+    {
+        std::cout << "SHRINK TO FIT TEST 1:\n\n";
+        Sequence<Rect> seq;
+
+        for (int i = 0; i < 69; i++) {
+            seq.add({ i,i,i,i });
+        }
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n";
+        std::cout << "CALLLING SHRINK TO FIT WHEN CAP IS HIGHER THAN SIZE\n";
+        seq.shrinkToFit();
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+    }
+
+    {
+        std::cout << "SHRINK TO FIT TEST 2:\n\n";
+        Sequence<Rect> seq;
+
+        for (int i = 0; i < 69; i++) {
+            seq.add({ i,i,i,i });
+        }
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n";
+
+        std::cout << "CALLLING SHRINK TO FIT WHEN CAP IS HIGHER THAN SIZE\n";
+        seq.shrinkToFit();
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n";
+        std::cout << "CALLLING SHRINK TO FIT AGAIN\n";
+        seq.shrinkToFit();
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+    }
+
+    {
+        std::cout << "SHRINK TO FIT TEST 3:\n\n";
+        Sequence<Rect> seq;
+
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n";
+        std::cout << "CALLLING SHRINK TO FIT ON AN EMPTY SEQUENCE\n";
+        seq.shrinkToFit();
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+    }
+
+    {
+        std::cout << "SHRINK TO FIT TEST 4:\n\n";
+        Sequence<Rect> seq;
+
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n";
+        seq.reserve(420);
+        std::cout << "SETTING LARGE CAPACITY:\tSIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n";
+        std::cout << "CALLLING SHRINK TO FIT\n";
+        seq.shrinkToFit();
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+    }
+
+    _CrtDumpMemoryLeaks();
+}
+
+void round11Tests_resize() {
+    {
+        std::cout << "RESIZE TEST 1\n\n";
+        Sequence<Rect> seq;
+        for (int i = 0; i < 12; i++) {
+            seq.add({ i,i,i,i });
+        }
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n";
+        std::cout << "CALLING RESIZE ON THE SAME SIZE\n";
+        seq.resize(seq.size());
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+    }
+
+    {
+        std::cout << "RESIZE TEST 2\n\n";
+        Sequence<Rect> seq;
+        for (int i = 0; i < 12; i++) {
+            seq.add({ i,i,i,i });
+        }
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n";
+        std::cout << "CALLING RESIZE ON SMALLER THAN CAPACITY AND SMALLER THAN CURRENT SIZE\n";
+        seq.resize(seq.size() - 1);
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+    }
+
+    {
+        std::cout << "RESIZE TEST 3\n\n";
+        Sequence<Rect> seq;
+        for (int i = 0; i < 12; i++) {
+            seq.add({ i,i,i,i });
+        }
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n";
+        std::cout << "CALLING RESIZE ON SMALLER THAN CAPACITY BUT LARGER THAN CURRENT SIZE\n";
+        seq.resize(seq.size() + 1);
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n";
+        auto it = seq.end() - 1;
+        std::cout << "VALUE OF THE ADDED DEFAULT ELEMENT >>> X: " << it->x << "\tY: " << it->y << "\tW: " << it->w << "\tH: " << it->h << "\n\n";
+    }
+
+    {
+        std::cout << "RESIZE TEST 4\n\n";
+        Sequence<Rect> seq;
+        for (int i = 0; i < 12; i++) {
+            seq.add({ i,i,i,i });
+        }
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n";
+        std::cout << "CALLING RESIZE ON LARGER THAN CAPACITY (LOGICALLY ALSO LARGER THAN SIZE)\n";
+        seq.resize(seq.capacity() + 1);
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n";
+        auto it = seq.end() - 1;
+        std::cout << "VALUE OF THE ADDED DEFAULT ELEMENT >>> X: " << it->x << "\tY: " << it->y << "\tW: " << it->w << "\tH: " << it->h << "\n";
+        --it;
+        std::cout << "VALUE OF THE ADDED DEFAULT ELEMENT >>> X: " << it->x << "\tY: " << it->y << "\tW: " << it->w << "\tH: " << it->h << "\n";
+        --it;
+        std::cout << "VALUE OF THE ADDED DEFAULT ELEMENT >>> X: " << it->x << "\tY: " << it->y << "\tW: " << it->w << "\tH: " << it->h << "\n\n";
+    }
+
+    {
+        std::cout << "RESIZE TEST 5\n\n";
+        Sequence<Rect> seq;
+       
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n";
+        std::cout << "CALLING RESIZE ON EMPTY\n";
+        seq.resize(seq.capacity() + 1);
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+    }
+
+    {
+        std::cout << "RESIZE TEST 6\n\n";
+        Sequence<Rect> seq;
+
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n";
+        std::cout << "CALLING RESIZE ON EMPTY WITH 0\n";
+        seq.resize(seq.capacity());
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+    }
+
+    {
+        std::cout << "RESIZE TEST 7\n\n";
+        Sequence<Rect> seq;
+
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n";
+        std::cout << "CALLING RESIZE ON EMPTY UNDERFLOWING\n";
+
+        //seq.resize(seq.capacity()-1);
+        //std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+
+        //std::vector<Rect> vec;
+        //std::cout << "INITIAL SIZE: " << vec.size() << "\tCAP: " << vec.capacity() << "\n";
+        //vec.resize(vec.capacity() - 1);
+       
+        std::cout << "RESULT: CRASH (same as vector)\n\n";
+    }
+
+    {
+        std::cout << "RESIZE TEST 8\n\n";
+        Sequence<Rect> seq;
+
+        std::cout << "INITIAL SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n";
+        std::cout << "CALLING RESIZE WITH A LARGE NUMBER\n";
+        seq.resize(1000000);
+        std::cout << "RESULT SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << "\n\n";
+    }
+
+
+    _CrtDumpMemoryLeaks();
+}
+
+void round12Tests_reserve_shrink_resize() {
+    {
+        std::cout << "COMBINATION TESTS\n\n";
+
+        Sequence<Rect> seq;
+
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "RESERVE 100\n";
+        seq.reserve(100);
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "RESIZE 50\n";
+        seq.resize(50);
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "SHRINK TO FIT\n";
+        seq.shrinkToFit();
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "RESERVE 25\n";
+        seq.reserve(25);
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "RESIZE 51\n";
+        seq.resize(51);
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "SHRINK TO FIT\n";
+        seq.shrinkToFit();
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "RESERVE 100\n";
+        seq.reserve(100);
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "RESIZE 1\n";
+        seq.resize(1);
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "SHRINK TO FIT\n";
+        seq.shrinkToFit();
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "RESIZE 420\n";
+        seq.resize(420);
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "SHRINK TO FIT\n";
+        seq.shrinkToFit();
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "RESERVE 0\n";
+        seq.reserve(0);
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "RESIZE 0\n";
+        seq.resize(0);
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "SHRINK TO FIT\n";
+        seq.shrinkToFit();
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "RESIZE 10\n";
+        seq.resize(10);
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "SHRINK TO FIT\n";
+        seq.shrinkToFit();
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "RESERVE 5\n";
+        seq.reserve(5);
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "RESERVE 25\n";
+        seq.reserve(25);
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "SHRINK TO FIT\n";
+        seq.shrinkToFit();
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "RESERVE 100\n";
+        seq.reserve(100);
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "RESIZE 0\n";
+        seq.resize(0);
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "RESIZE 100\n";
+        seq.resize(100);
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+        std::cout << "RESIZE 101\n";
+        seq.resize(101);
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+
+
+        for (int i = 0; i < 100; ++i) {
+            seq.resize((i % 2 == 0) ? 10 : 50);
+        }
+        std::cout << "SIZE: " << seq.size() << "\tCAP: " << seq.capacity() << '\n';
+    }
+    _CrtDumpMemoryLeaks();
+}
+
 int main() {
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
@@ -729,31 +1105,14 @@ int main() {
     _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
 
-    round2Tests_testing_iterator_operators();
-    round3Tests_sequence_adding_erasing();
-    round4Tests_sequence_erase();
-    round5Tests_sequence_erase_range();
-    round6Tests_sequence_remove();
-    round7Tests_sequence_remove_bulk(0);
+    //round2Tests_testing_iterator_operators();
+    //round3Tests_sequence_adding_erasing();
+    //round4Tests_sequence_erase();
+    //round5Tests_sequence_erase_range();
+    //round6Tests_sequence_remove();
+    //round7Tests_sequence_remove_bulk(0);
 
-    
-   //{
-   //
-   //    std::vector<Rect> vecrec = { {1,1,1,1} };
-   //    float lol = 5;
-   //    std::vector<float>::iterator pepejam = &lol;
-   //
-   //    Sequence<float>::iterator mungus = &lol;
-   //
-   //
-   //}
-
-    {
-        Sequence<int> lol;
-        lol.shrinkToFit();
-        lol.reserve(0);
-    }
-
+    round12Tests_reserve_shrink_resize();
 
     _CrtDumpMemoryLeaks();
 
