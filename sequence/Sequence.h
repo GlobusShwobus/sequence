@@ -3,49 +3,33 @@
 #include <cassert>
 #include <algorithm>
 #include <memory>
-
 #include <compare>
 
+#include <concepts>
+#include <type_traits>
+
 template <typename T>
+concept SequenceCompatible = std::copy_constructible<T> && std::is_copy_assignable_v<T> && std::destructible<T> && !std::is_const_v<T>;
+					  
+template <typename T> requires SequenceCompatible<T>
 class Sequence {
 private:
+	//forward declares
 	class Iterator;
 	class Const_Iterator;
 public:
+	//type names
 	using value_type = T;
 	using pointer = T*;
 	using reference = T&;
 	using const_reference = const T&;
 	using size_type = std::size_t;
+	using difference_type = std::ptrdiff_t;//maybe some algos need it? otherwise idk, is a req tho
 
 	using iterator = Iterator;
 	using const_iterator = Const_Iterator;
-
-	iterator begin() {
-		return iterator(array);
-	}
-	iterator end() {
-		return iterator(array + mSize);
-	}
-	const_iterator begin()const {
-		return const_iterator(array);
-	}
-	const_iterator end()const {
-		return const_iterator(array + mSize);
-	}
-	const_iterator cbegin()const {
-		return const_iterator(array);
-	}
-	const_iterator cend()const {
-		return const_iterator(array + mSize);
-	}
-
 private:
-
-	pointer array = nullptr;
-	size_type mSize;
-	size_type cap;
-
+	//private members
 	pointer memAlloc(size_type amount) {
 		void* bytes = ::operator new(amount * sizeof(value_type));
 		return static_cast<pointer>(bytes);
@@ -57,13 +41,13 @@ private:
 			cap = 0;
 		}
 	}
-	pointer raw_begin()const {
+	constexpr pointer raw_begin()const {
 		return array;
 	}
-	pointer raw_end()const {
+	constexpr pointer raw_end()const {
 		return array + mSize;
 	}
-	size_type growthFactor(size_type input)const {
+	constexpr size_type growthFactor(size_type input)const {
 		return input + (input / 2) + 1;
 	}
 
@@ -149,10 +133,24 @@ public:
 	}
 	//#################################################
 
-	bool      isEmpty()const  { return mSize == 0; }
-	size_type size()const     { return mSize; }
-	size_type capacity()const { return cap; }
+	//ACCESS
+	constexpr reference operator[](size_type index) {
+		assert(index < mSize);
+		return array[index];
+	}
+	constexpr const_reference operator[](size_type index)const {
+		assert(index < mSize);
+		return array[index];
+	}
+	constexpr iterator begin() { return iterator(array); }
+	constexpr iterator end() { return iterator(array + mSize); }
+	constexpr const_iterator begin()const { return const_iterator(array); }
+	constexpr const_iterator end()const { return const_iterator(array + mSize); }
+	constexpr const_iterator cbegin()const { return const_iterator(array); }
+	constexpr const_iterator cend()const { return const_iterator(array + mSize); }
+	//#################################################
 
+	//MODIFICATION
 	void add(const reference value) {
 		if (mSize == cap)
 			grow(growthFactor(cap));
@@ -165,84 +163,16 @@ public:
 		std::construct_at(raw_end(), std::move(value));
 		++mSize;
 	}
-
 	void pop_back() {
 		assert(mSize > 0);
 		array[mSize-1].~T();
 		--mSize;
 	}
-
 	void clear() {
 		if (mSize == 0)
 			return;
 		std::destroy(raw_begin(), raw_end());
 		mSize = 0;
-	}
-
-	reference operator[](size_type index) {
-		assert(index < mSize);
-		return array[index];
-	}
-	const reference operator[](size_type index)const {
-		assert(index < mSize);
-		return array[index];
-	}
-	const_iterator remove(const_iterator pos) {
-		return const_iterator(removeImpl(pos));
-	}
-	iterator remove(iterator pos) {
-		return iterator(removeImpl(pos));
-	}
-	template <typename UnaryPred>
-	iterator remove(UnaryPred predicate) {
-
-		pointer last = raw_end() - 1;
-		pointer current = raw_begin();
-
-		//if predicate is true, move last element to current then move the last pointer
-		while (current <= last) {
-
-			if (predicate(*current)) {
-				*current = std::move(*last);
-				--last;
-			}
-			else {
-				++current;
-			}
-		}
-		size_type newSize = last - raw_begin() + 1;
-
-		//bulk delete everything from last to end then apply new size
-		if (newSize < mSize) {
-			std::destroy(last + 1, raw_end());
-			mSize = newSize;
-		}
-
-		return end();
-	}
-	const_iterator erase(const_iterator pos) {
-		return const_iterator(eraseImpl(pos));
-	}
-	iterator erase(iterator pos) {
-		return iterator(eraseImpl(pos));//implicit conversion to const_iterator should occur
-	}
-	iterator erase(const_iterator first, const_iterator last) {
-		return const_iterator(eraseRangeImpl(first, last));
-	}
-	iterator erase(iterator first, iterator last) {
-		return iterator(eraseRangeImpl(first, last));
-	}
-
-
-	void reserve(size_type newCap) {
-		if (newCap > cap) {
-			grow(newCap);
-		}
-	}
-	void shrinkToFit() {
-		if (cap > mSize) {
-			grow(mSize);
-		}
 	}
 	void resize(size_type count) {
 		if (count == mSize) {
@@ -273,25 +203,83 @@ public:
 		cap = newCap;
 		mSize = count;
 	}
+	template <typename UnaryPred>
+	iterator remove(UnaryPred predicate) {
 
+		pointer last = raw_end() - 1;
+		pointer current = raw_begin();
+
+		//if predicate is true, move last element to current then move the last pointer
+		while (current <= last) {
+
+			if (predicate(*current)) {
+				*current = std::move(*last);
+				--last;
+			}
+			else {
+				++current;
+			}
+		}
+		size_type newSize = last - raw_begin() + 1;
+
+		//bulk delete everything from last to end then apply new size
+		if (newSize < mSize) {
+			std::destroy(last + 1, raw_end());
+			mSize = newSize;
+		}
+
+		return end();
+	}
+	const_iterator remove(const_iterator pos)                       { return const_iterator(removeImpl(pos)); }
+	iterator       remove(iterator pos)                             { return iterator(removeImpl(pos)); }
+	const_iterator erase(const_iterator pos)                        { return const_iterator(eraseImpl(pos)); }
+	iterator       erase(iterator pos)                              { return iterator(eraseImpl(pos)); }
+	const_iterator erase(const_iterator first, const_iterator last) { return const_iterator(eraseRangeImpl(first, last)); }
+	iterator       erase(iterator first, iterator last)             { return iterator(eraseRangeImpl(first, last)); }
+	//#################################################
+
+
+	//CAPACITY
+	constexpr bool      isEmpty()const  { return mSize == 0; }
+	constexpr size_type size()const     { return mSize; }
+	constexpr size_type capacity()const { return cap; }
+
+	void reserve(size_type newCap) {
+		if (newCap > cap) {
+			grow(newCap);
+		}
+	}
+	void shrinkToFit() {
+		if (cap > mSize) {
+			grow(mSize);
+		}
+	}
+	//#################################################
 
 	/*
 	TODO
 
 	rule of 5 constructor + initalizer list
-	static asserts to make sure object has default, copy and move constructors, otherwise == no bueno
-		
 	
 	emplace_back - i have no idea how to even but need to know ( && ? )
 	at
 	data
 
+	non member comparison functions < > <= etc
+	swap
+
 	EXTRAS IF AT ALL:
 	append range (add multiple in one go, initalizer list?)
 	*/
+	
+private:
+	//members
+	pointer array = nullptr;
+	size_type mSize;
+	size_type cap;
 };
 
-template<typename T>
+template<typename T> requires SequenceCompatible<T>
 class Sequence<T>::Iterator {
 public:
 	using value_type = T;
@@ -322,20 +310,13 @@ public:
 	bool operator==(const self_type& rhs)const noexcept { return ptr == rhs.ptr; }
 	auto operator<=>(const self_type& rhs)const noexcept { return ptr <=> rhs.ptr; }
 
-	//bool operator!=(const self_type& rhs)const noexcept { return ptr != rhs.ptr; }
-	//bool operator<(const self_type& rhs)const noexcept { return ptr < rhs.ptr; }
-	//bool operator>(const self_type& rhs)const noexcept { return ptr > rhs.ptr; }
-	//bool operator<=(const self_type& rhs)const noexcept { return ptr <= rhs.ptr; }
-	//bool operator>=(const self_type& rhs)const noexcept { return ptr >= rhs.ptr; }
-
-
 	explicit Iterator(pointer p) :ptr(p) {}
 	pointer base()const { return ptr; }
 private:
 	pointer ptr = nullptr;
 };
 
-template<typename T>
+template<typename T> requires SequenceCompatible<T>
 class Sequence<T>::Const_Iterator {
 public:
 	using value_type = const T;
@@ -362,12 +343,6 @@ public:
 
 	bool operator==(const self_type& rhs)const noexcept { return ptr == rhs.ptr; }
 	auto operator<=>(const self_type& rhs)const noexcept { return ptr <=> rhs.ptr; }
-
-	//bool operator!=(const self_type& rhs)const noexcept { return ptr != rhs.ptr; }
-	//bool operator<(const self_type& rhs)const noexcept { return ptr < rhs.ptr; }
-	//bool operator>(const self_type& rhs)const noexcept { return ptr > rhs.ptr; }
-	//bool operator<=(const self_type& rhs)const noexcept { return ptr <= rhs.ptr; }
-	//bool operator>=(const self_type& rhs)const noexcept { return ptr >= rhs.ptr; }
 
 	explicit Const_Iterator(pointer p) :ptr(p) {}
 	Const_Iterator(const Iterator& rp) :ptr(rp.base()) {}

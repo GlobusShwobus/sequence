@@ -1097,6 +1097,16 @@ void round12Tests_reserve_shrink_resize() {
     _CrtDumpMemoryLeaks();
 }
 
+void round13Tests_constraints() {
+    class all_default {
+    public:
+        int x = 1;
+    };
+
+
+
+}
+
 int main() {
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
@@ -1106,12 +1116,12 @@ int main() {
     _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
 
     round2Tests_testing_iterator_operators();
-    //round3Tests_sequence_adding_erasing();
-    //round4Tests_sequence_erase();
-    //round5Tests_sequence_erase_range();
-    //round6Tests_sequence_remove();
-    //round7Tests_sequence_remove_bulk(0);
-    //round12Tests_reserve_shrink_resize();
+    round3Tests_sequence_adding_erasing();
+    round4Tests_sequence_erase();
+    round5Tests_sequence_erase_range();
+    round6Tests_sequence_remove();
+    round7Tests_sequence_remove_bulk(0);
+    round12Tests_reserve_shrink_resize();
 
     _CrtDumpMemoryLeaks();
 
