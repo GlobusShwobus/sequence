@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <memory>
 
+#include <compare>
+
 template <typename T>
 class Sequence {
 private:
@@ -13,6 +15,7 @@ public:
 	using value_type = T;
 	using pointer = T*;
 	using reference = T&;
+	using const_reference = const T&;
 	using size_type = std::size_t;
 
 	using iterator = Iterator;
@@ -317,11 +320,15 @@ public:
 	difference_type operator-(const self_type& rhs)const { return ptr - rhs.ptr; }
 
 	bool operator==(const self_type& rhs)const noexcept { return ptr == rhs.ptr; }
-	bool operator!=(const self_type& rhs)const noexcept { return ptr != rhs.ptr; }
-	bool operator<(const self_type& rhs)const noexcept { return ptr < rhs.ptr; }
-	bool operator>(const self_type& rhs)const noexcept { return ptr > rhs.ptr; }
-	bool operator<=(const self_type& rhs)const noexcept { return ptr <= rhs.ptr; }
-	bool operator>=(const self_type& rhs)const noexcept { return ptr >= rhs.ptr; }
+	auto operator<=>(const self_type& rhs)const noexcept { return ptr <=> rhs.ptr; }
+
+	//bool operator!=(const self_type& rhs)const noexcept { return ptr != rhs.ptr; }
+	//bool operator<(const self_type& rhs)const noexcept { return ptr < rhs.ptr; }
+	//bool operator>(const self_type& rhs)const noexcept { return ptr > rhs.ptr; }
+	//bool operator<=(const self_type& rhs)const noexcept { return ptr <= rhs.ptr; }
+	//bool operator>=(const self_type& rhs)const noexcept { return ptr >= rhs.ptr; }
+
+
 	explicit Iterator(pointer p) :ptr(p) {}
 	pointer base()const { return ptr; }
 private:
@@ -354,11 +361,13 @@ public:
 	difference_type operator-(const self_type& rhs)const { return ptr - rhs.ptr; }
 
 	bool operator==(const self_type& rhs)const noexcept { return ptr == rhs.ptr; }
-	bool operator!=(const self_type& rhs)const noexcept { return ptr != rhs.ptr; }
-	bool operator<(const self_type& rhs)const noexcept { return ptr < rhs.ptr; }
-	bool operator>(const self_type& rhs)const noexcept { return ptr > rhs.ptr; }
-	bool operator<=(const self_type& rhs)const noexcept { return ptr <= rhs.ptr; }
-	bool operator>=(const self_type& rhs)const noexcept { return ptr >= rhs.ptr; }
+	auto operator<=>(const self_type& rhs)const noexcept { return ptr <=> rhs.ptr; }
+
+	//bool operator!=(const self_type& rhs)const noexcept { return ptr != rhs.ptr; }
+	//bool operator<(const self_type& rhs)const noexcept { return ptr < rhs.ptr; }
+	//bool operator>(const self_type& rhs)const noexcept { return ptr > rhs.ptr; }
+	//bool operator<=(const self_type& rhs)const noexcept { return ptr <= rhs.ptr; }
+	//bool operator>=(const self_type& rhs)const noexcept { return ptr >= rhs.ptr; }
 
 	explicit Const_Iterator(pointer p) :ptr(p) {}
 	Const_Iterator(const Iterator& rp) :ptr(rp.base()) {}
