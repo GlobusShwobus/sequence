@@ -9,7 +9,12 @@
 #include <type_traits>
 
 template <typename T>
-concept SequenceCompatible = std::copy_constructible<T> && std::is_copy_assignable_v<T> && std::destructible<T> && !std::is_const_v<T>;
+concept SequenceCompatible = std::default_initializable<T> &&
+							 std::copy_constructible<T> && 
+						     /*std::move_constructible<T> &&*/ //test with just copy restrictions, as they should cover it
+							 std::is_copy_assignable_v<T> && 
+							 std::destructible<T> &&
+							 !std::is_const_v<T>;
 					  
 template <typename T> requires SequenceCompatible<T>
 class Sequence {
@@ -40,6 +45,11 @@ private:
 			array = nullptr;
 			cap = 0;
 		}
+	}
+	void reset()noexcept {
+		array = nullptr;
+		cap = 0;
+		mSize = 0;
 	}
 	constexpr pointer raw_begin()const {
 		return array;
@@ -107,26 +117,94 @@ private:
 	}
 public:
 	//CONSTRUCTORS
-	Sequence() :array(nullptr), mSize(0), cap(0) {}
-	Sequence(const Sequence& rhs) {
-		pointer newArray = memAlloc(rhs.cap);
-		std::uninitialized_copy(rhs.raw_begin(), rhs.raw_end(), newArray);
-		mSize = rhs.mSize;
-		cap = rhs.cap;
-		array = newArray;
+	Sequence()noexcept :array(nullptr), mSize(0), cap(0) {}
+	Sequence(std::initializer_list<value_type> init) {
+		if (init.size() > 0) {
+			array = memAlloc(init.size());
+			cap = init.size();
+			mSize = init.size();
+
+			std::uninitialized_copy(init.begin(), init.end(), array);
+		}
 	}
-	Sequence& operator=(const Sequence& rhs) {
-		if (this == &rhs)
-			return *this;
-		clear();
-		memFree();
-		pointer newArray = memAlloc(rhs.cap);
-		std::uninitialized_copy(rhs.raw_begin(), rhs.raw_end(), newArray);
-		mSize = rhs.mSize;
-		cap = rhs.cap;
-		array = newArray;
+	explicit Sequence(size_type count) {
+		if (count > 0) {
+			array = memAlloc(count);
+			cap = count;
+			mSize = count;
+
+			std::uninitialized_value_construct_n(array, count);
+		}
+	}
+	constexpr Sequence(size_type count, const_reference value) {
+		if (count > 0) {
+			array = memAlloc(count);
+			cap = count;
+			mSize = count;
+
+			std::uninitialized_fill_n(array, count, value);
+		}
+	}
+	constexpr Sequence(const Sequence& rhs) {
+		if (rhs.array) {
+			array = memAlloc(rhs.cap);
+			mSize = rhs.mSize;
+			cap = rhs.cap;
+
+			std::uninitialized_copy(rhs.raw_begin(), rhs.raw_end(), array);
+		}
+	}
+	constexpr Sequence(Sequence&& rhs)noexcept:array(rhs.array), cap(rhs.cap), mSize(rhs.mSize) {
+		rhs.reset();
+	}
+	constexpr Sequence& operator=(const Sequence& rhs) {
+		if (this != &rhs) {
+			clear();
+			memFree();
+
+			if (rhs.array) {
+				array = memAlloc(rhs.cap);
+				mSize = rhs.mSize;
+				cap = rhs.cap;
+
+				std::uninitialized_copy(rhs.raw_begin(), rhs.raw_end(), array);
+			}
+			else {
+				reset();
+			}
+		}
 		return *this;
 	}
+	constexpr Sequence& operator=(Sequence&& rhs)noexcept {
+		if (this != &rhs) {
+			clear();
+			memFree();
+
+			array = rhs.array;
+			mSize = rhs.mSize;
+			cap = rhs.cap;
+
+			rhs.reset();
+		}
+		return *this;
+	}
+	constexpr Sequence& operator=(std::initializer_list<value_type> ilist) {
+		clear();
+		memFree();
+
+		if (ilist.size() > 0) {
+			array = memAlloc(ilist.size());
+			cap = ilist.size();
+			mSize = ilist.size();
+
+			std::uninitialized_copy(ilist.begin(), ilist.end(), array);
+		}
+		else {
+			reset();
+		}
+		return *this;
+	}
+
 	~Sequence() {
 		clear();
 		memFree();
@@ -258,8 +336,6 @@ public:
 
 	/*
 	TODO
-
-	rule of 5 constructor + initalizer list
 	
 	emplace_back - i have no idea how to even but need to know ( && ? )
 	at
@@ -275,8 +351,8 @@ public:
 private:
 	//members
 	pointer array = nullptr;
-	size_type mSize;
-	size_type cap;
+	size_type mSize = 0;
+	size_type cap = 0;
 };
 
 template<typename T> requires SequenceCompatible<T>
