@@ -18,17 +18,7 @@
 #include <type_traits>
 
 namespace seq {
-	template <typename T>
-	concept SequenceTypeTrait = std::default_initializable<T> &&
-		std::copy_constructible<T> &&
-		std::is_copy_assignable_v<T> &&
-		std::move_constructible<T> &&
-		std::is_move_assignable_v<T> &&
-		std::destructible<T> &&
-		std::is_object_v<T> &&
-		!std::is_const_v<T>;
-
-	template <typename T> requires SequenceTypeTrait<T>
+	template <typename T> requires std::semiregular<T>
 	class Sequence {
 	private:
 		//forward declares
@@ -414,7 +404,7 @@ namespace seq {
 		lhs.swap(rhs);
 	}
 
-	template<typename T> requires SequenceTypeTrait<T>
+	template<typename T> requires std::semiregular<T>
 	class Sequence<T>::Iterator {
 	public:
 		using value_type = T;
@@ -451,7 +441,7 @@ namespace seq {
 		pointer ptr = nullptr;
 	};
 
-	template<typename T> requires SequenceTypeTrait<T>
+	template<typename T> requires std::semiregular<T>
 	class Sequence<T>::Const_Iterator {
 	public:
 		using value_type = const T;
