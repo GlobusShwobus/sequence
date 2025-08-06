@@ -19,16 +19,9 @@
 
 namespace seq {
 	template <typename T>
-	concept SequenceCompatible = std::default_initializable<T> &&
-		                         std::copy_constructible<T> &&
-		                         std::is_copy_assignable_v<T> &&
-		                         std::move_constructible<T> &&
-		                         std::is_move_assignable_v<T> &&
-		                         std::destructible<T> &&
-		                         std::is_object_v<T> &&
-		                         !std::is_const_v<T>;
+	concept SequenceTypeTrait = std::regular<T> && !std::is_const_v<T>;
 
-	template <typename T> requires SequenceCompatible<T>
+	template <typename T> requires SequenceTypeTrait<T>
 	class Sequence {
 	private:
 		//forward declares
@@ -36,13 +29,14 @@ namespace seq {
 		class Const_Iterator;
 	public:
 		//type names
+		using type = Sequence<T>;
 		using value_type = T;
 		using pointer = T*;
 		using const_pointer = const T*;
 		using reference = T&;
 		using const_reference = const T&;
 		using size_type = std::size_t;
-		using difference_type = std::ptrdiff_t;//maybe some algos need it? otherwise idk, is a req tho
+		using difference_type = std::ptrdiff_t;
 
 		using iterator = Iterator;
 		using const_iterator = Const_Iterator;
@@ -250,12 +244,12 @@ namespace seq {
 		//#################################################
 
 		//MODIFICATION
-		void push_back(const_reference value) {
+		void emplace_back(const_reference value) {
 			ifGrow();
 			std::construct_at(raw_end(), value);
 			++mSize;
 		}
-		void push_back(T&& value) {
+		void emplace_back(T&& value) {
 			ifGrow();
 			std::construct_at(raw_end(), std::move(value));
 			++mSize;
@@ -413,7 +407,7 @@ namespace seq {
 		lhs.swap(rhs);
 	}
 
-	template<typename T> requires SequenceCompatible<T>
+	template<typename T> requires SequenceTypeTrait<T>
 	class Sequence<T>::Iterator {
 	public:
 		using value_type = T;
@@ -450,7 +444,7 @@ namespace seq {
 		pointer ptr = nullptr;
 	};
 
-	template<typename T> requires SequenceCompatible<T>
+	template<typename T> requires SequenceTypeTrait<T>
 	class Sequence<T>::Const_Iterator {
 	public:
 		using value_type = const T;
