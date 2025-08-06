@@ -17,14 +17,17 @@
 #include <concepts>
 #include <type_traits>
 
+/*
+top most level sequence must be object type and it can not be cosnt
+*/
 namespace seq {
 
 	template <typename T>
-	concept SequenceTypeTrait = std::semiregular<T> && !std::is_const_v<T>;
-
-	template <typename T> requires SequenceTypeTrait<T>
 	class Sequence {
 	private:
+		static_assert(std::is_object_v<T>, "T must be an object type");
+		static_assert(std::destructible<T>, "T must be destructible");
+		static_assert(!std::is_const_v<T>, "T cannot be const type");
 		//forward declares
 		class Iterator;
 		class Const_Iterator;
@@ -127,7 +130,7 @@ namespace seq {
 			--mSize;
 			return dest;
 		}
-		void uninitCopy(pointer fromBegin, pointer fromEnd) {
+		void uninitCopy(const_pointer  fromBegin, const_pointer  fromEnd) {
 			size_type count = static_cast<size_type>(fromEnd - fromBegin);
 			array = memAlloc(count);
 			mSize = count;
@@ -138,21 +141,21 @@ namespace seq {
 	public:
 		//CONSTRUCTORS
 		Sequence()noexcept :array(nullptr), mSize(0), cap(0) {}
-		Sequence(std::initializer_list<value_type> init) {
+		Sequence(std::initializer_list<value_type> init) requires std::copyable<T> {
 			if (init.size() > 0) {
 				uninitCopy(init.begin(), init.end());
 			}
 		}
-		explicit Sequence(size_type count) {
+		explicit Sequence(size_type count) requires std::default_initializable<T>  {
 			if (count > 0) {
 				array = memAlloc(count);
 				cap = count;
 				mSize = count;
 
-				std::uninitialized_value_construct_n(array, count);//envokes T()
+				std::uninitialized_value_construct_n(array, count);
 			}
 		}
-		Sequence(size_type count, const_reference value) {
+		Sequence(size_type count, const_reference value) requires std::copyable<T> {
 			if (count > 0) {
 				array = memAlloc(count);
 				cap = count;
@@ -161,7 +164,7 @@ namespace seq {
 				std::uninitialized_fill_n(array, count, value);
 			}
 		}
-		Sequence(const Sequence& rhs) {
+		Sequence(const Sequence& rhs) requires std::copyable<T> {
 			if (rhs.array) {
 				uninitCopy(rhs.raw_begin(), rhs.raw_end());
 			}
@@ -169,7 +172,7 @@ namespace seq {
 		constexpr Sequence(Sequence&& rhs)noexcept :array(rhs.array), cap(rhs.cap), mSize(rhs.mSize) {
 			rhs.reset();
 		}
-		Sequence& operator=(const Sequence& rhs) {
+		Sequence& operator=(const Sequence& rhs)requires std::copyable<T> {
 			if (this != &rhs) {
 				clear();
 				memFree();
@@ -196,7 +199,7 @@ namespace seq {
 			}
 			return *this;
 		}
-		Sequence& operator=(std::initializer_list<value_type> ilist) {
+		Sequence& operator=(std::initializer_list<value_type> ilist) requires std::copyable<T>{
 			clear();
 			memFree();
 
@@ -209,7 +212,7 @@ namespace seq {
 			return *this;
 		}
 
-		~Sequence() {
+		~Sequence() {//putting a requirement here will cause a misleading error, though would be more correct
 			clear();
 			memFree();
 		}
@@ -245,32 +248,36 @@ namespace seq {
 		//#################################################
 
 		//MODIFICATION
-		void emplace_back(const_reference value) {
+		void push_back(const_reference value) requires std::copy_constructible<T> {
 			ifGrow();
 			std::construct_at(raw_end(), value);
 			++mSize;
 		}
-		void emplace_back(T&& value) {
+		void push_back(T&& value) requires std::move_constructible<T> {
 			ifGrow();
 			std::construct_at(raw_end(), std::move(value));
 			++mSize;
 		}
+		void emplace_back(T&& value) requires std::move_constructible<T>{
+			push_back(std::move(value));
+		}
 		template<typename... Args>
-		void emplace_back(Args&&... args) {
+		void emplace_back(Args&&... args) requires std::constructible_from<T, Args&&...>{
 			ifGrow();
 			std::construct_at(raw_end(), std::forward<Args>(args)...);
 			++mSize;
 		}
-		void pop_back() {
-			assert(mSize > 0);
-			array[mSize - 1].~T();
-			--mSize;
+		void pop_back()noexcept {
+			if (mSize > 0) {
+				array[mSize - 1].~T();
+				--mSize;
+			}
 		}
-		void clear()noexcept {
-			if (mSize == 0)
-				return;
-			std::destroy(raw_begin(), raw_end());
-			mSize = 0;
+		void clear() noexcept{
+			if (mSize > 0) {
+				std::destroy(raw_begin(), raw_end());
+				mSize = 0;
+			}
 		}
 		void resize(size_type count) {
 			if (count == mSize) {
@@ -408,7 +415,7 @@ namespace seq {
 		lhs.swap(rhs);
 	}
 
-	template<typename T> requires SequenceTypeTrait<T>
+	template<typename T>
 	class Sequence<T>::Iterator {
 	public:
 		using value_type = T;
@@ -445,7 +452,7 @@ namespace seq {
 		pointer ptr = nullptr;
 	};
 
-	template<typename T> requires SequenceTypeTrait<T>
+	template<typename T>
 	class Sequence<T>::Const_Iterator {
 	public:
 		using value_type = const T;
