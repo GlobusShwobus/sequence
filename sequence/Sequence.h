@@ -283,33 +283,27 @@ namespace seq {
 			if (count == mSize) {
 				return;
 			}
-			//if count is less than current capacity, then no need to reallocate
-			if (count <= cap) {
-				//if count is less than size, cut off the end, else add default constructed elements
-				if (count < mSize) {
-					std::destroy(raw_begin() + count, raw_end());
-				}
-				else {
-					std::uninitialized_default_construct(raw_end(), raw_begin() + count);//same as vector, if resize sequence<int>, extra ints are there but not initalized (not zeroed)
-				}
+			//if count is less than size, cut off the tail
+			if (count < mSize) {
+				std::destroy(raw_begin() + count, raw_end());
 				mSize = count;
 				return;
 			}
-			//need reallocation and since count > cap, its always greater than mSize
-			size_type newCap = growthFactor(count);
-			pointer newArray = memAlloc(newCap);
-
-			std::uninitialized_move(raw_begin(), raw_end(), newArray);
-			std::uninitialized_default_construct(newArray + mSize, newArray + count);
-
-			std::destroy(raw_begin(), raw_end());
-			memFree();
-			array = newArray;
-			cap = newCap;
-			mSize = count;
+			// if T is default constructible, may need realloc in which case need movable
+			if constexpr (std::default_initializable<T>) {
+				if (count > cap) {
+					static_assert(std::move_constructible<T>, "T must be move constructible");
+					reAlloc(count);
+				}
+				std::uninitialized_default_construct(raw_end(), raw_begin() + count);
+				mSize = count;
+			}
+			else {
+				static_assert(std::default_initializable<T>, "T must be default initializable");
+			}
 		}
 		template <typename UnaryPred>
-		iterator remove(UnaryPred predicate) {
+		iterator remove(UnaryPred predicate) requires std::move_constructible<T> {
 
 			pointer last = raw_end() - 1;
 			pointer current = raw_begin();
@@ -325,7 +319,7 @@ namespace seq {
 					++current;
 				}
 			}
-			size_type newSize = last - raw_begin() + 1;
+			size_type newSize = last - raw_begin() + 1;//last began at last element, not one off the last, so here add it back
 
 			//bulk delete everything from last to end then apply new size
 			if (newSize < mSize) {
@@ -335,12 +329,24 @@ namespace seq {
 
 			return end();
 		}
-		const_iterator remove(const_iterator pos)                       { return { removeImpl(pos) }; }
-		iterator       remove(iterator pos)                             { return { removeImpl(pos) }; }
-		const_iterator erase(const_iterator pos)                        { return { eraseImpl(pos) }; }
-		iterator       erase(iterator pos)                              { return { eraseImpl(pos) }; }
-		const_iterator erase(const_iterator first, const_iterator last) { return { eraseRangeImpl(first, last) }; }
-		iterator       erase(iterator first, iterator last)             { return { eraseRangeImpl(first, last) }; }
+		const_iterator remove(const_iterator pos)requires std::move_constructible<T> {
+			return { removeImpl(pos) };
+		}
+		iterator remove(iterator pos)requires std::move_constructible<T> {
+			return { removeImpl(pos) };
+		}
+		const_iterator erase(const_iterator pos)requires std::move_constructible<T> {
+			return { eraseImpl(pos) };
+		}
+		iterator erase(iterator pos)requires std::move_constructible<T> {
+			return { eraseImpl(pos) };
+		}
+		const_iterator erase(const_iterator first, const_iterator last)requires std::move_constructible<T> {
+			return { eraseRangeImpl(first, last) };
+		}
+		iterator erase(iterator first, iterator last)requires std::move_constructible<T> {
+			return { eraseRangeImpl(first, last) }; 
+		}
 
 		constexpr void swap(Sequence& rhs)noexcept {
 			pointer tempArr = array;
@@ -364,13 +370,13 @@ namespace seq {
 		constexpr size_type size()const noexcept{ return mSize; }
 		constexpr size_type capacity()const noexcept{ return cap; }
 
-		void reserve(size_type newCap) {
+		void reserve(size_type newCap) requires std::move_constructible<T> {
 			if (newCap > cap) {
 				reAlloc(newCap);
 			}
 		}
-		void shrinkToFit() {
-			if (cap > mSize) {
+		void shrinkToFit() requires std::move_constructible<T> {
+			if (cap > mSize) {//realloc sets the cap only, so if this function is called twice in a raw, just skip it entirely, otherwise if it grows in between the situation changed
 				reAlloc(mSize);
 			}
 		}
