@@ -19,6 +19,7 @@
 
 /*
 IMPORTANT!!!
+			eraseImpl, eraseRangeImpl, remove and removeImpl all use std::move which can fail
 			consider how to communnicate failure (currently realloc handles but fails silently)
 */
 namespace seq {
@@ -47,19 +48,44 @@ namespace seq {
 		using const_iterator = Const_Iterator;
 
 	private:
+		
 		class CopyPredicate {
+			const_pointer  srcBegin = nullptr;
+			const_pointer  srcEnd = nullptr;
 		public:
-			pointer operator()(pointer p1Begin, pointer p1End, pointer p2Begin) {
-				return std::uninitialized_copy(p1Begin, p1End, p2Begin);
+			CopyPredicate(const_pointer srcBegin, const_pointer srcEnd) :srcBegin(srcBegin), srcEnd(srcEnd) {}
+			pointer operator()(pointer dest) {
+				return std::uninitialized_copy(srcBegin, srcEnd, dest);
 			}
 		};
 		class MovePredicate {
+			const_pointer  srcBegin = nullptr;
+			const_pointer  srcEnd = nullptr;
 		public:
-			pointer operator()(pointer p1Begin, pointer p1End, pointer p2Begin) {
-				return std::uninitialized_move(p1Begin, p1End, p2Begin);
+			MovePredicate(const_pointer srcBegin, const_pointer srcEnd) :srcBegin(srcBegin), srcEnd(srcEnd) {}
+			pointer operator()(pointer dest) {
+				return std::uninitialized_move(srcBegin, srcEnd, dest);
 			}
 		};
-		class reAllocator {
+		class ValueConstructPredicate {
+			size_type _count = 0;
+		public:
+			ValueConstructPredicate(size_type _count) :_count(_count) {}
+			pointer operator()(pointer dest) {
+				return std::uninitialized_value_construct_n(dest, _count);
+			}
+		};
+		class FillConstructNPredicate {
+			size_type _count = 0;
+			const_reference _value;
+		public:
+			FillConstructNPredicate(size_type _count, const_reference _value) :_count(_count), _value(_value) {}
+			pointer operator()(pointer dest) {
+				return std::uninitialized_fill_n(dest, _count, _value);
+			}
+		};
+
+		class Allocator {
 			pointer mem = nullptr;
 			size_type amount = 0;
 			
@@ -74,10 +100,10 @@ namespace seq {
 				}
 			}
 		public:
-			reAllocator(size_type amount) :amount(amount) {}
+			Allocator(size_type amount) :amount(amount) {}
 
 			template <typename Pred>
-			bool execute(pointer begin, pointer end, Pred pred) {
+			bool execute(Pred pred) {
 				try {
 					mem = memAlloc(amount);
 				}
@@ -86,7 +112,7 @@ namespace seq {
 				}
 				pointer current = mem;
 				try {
-					current = pred(begin, end, mem);
+					current = pred(mem);
 				}
 				catch (...) {
 					std::destroy(mem, current);//predicate calls move or copy which iterates internally, meaning mem -> current becomes a range
@@ -102,7 +128,7 @@ namespace seq {
 				return temp;
 			}
 
-			~reAllocator() {
+			~Allocator() {
 				cleanUp();
 			}
 		};
@@ -136,15 +162,6 @@ namespace seq {
 		void ifGrow() {
 			if (mSize == cap)
 				reAlloc(growthFactor(cap));
-		}
-		void reAlloc(size_type newCap) {
-			reAllocator newArray(newCap);
-			if (newArray.execute(raw_begin(), raw_end(), MovePredicate{})) {
-				std::destroy(raw_begin(), raw_end());
-				memFree();
-				array = newArray.release();
-				cap = newCap;
-			}
 		}
 		pointer eraseImpl(const_iterator pos) {
 			if (pos < begin() || pos >= end()) {
@@ -201,10 +218,19 @@ namespace seq {
 			return dest;
 		}
 
+		void reAlloc(size_type newCap) {
+			Allocator newArray(newCap);
+			if (newArray.execute(MovePredicate{ raw_begin(), raw_end() })) {
+				std::destroy(raw_begin(), raw_end());
+				memFree();
+				array = newArray.release();
+				cap = newCap;
+			}
+		}
 		void uninitCopy(const_pointer  fromBegin, const_pointer  fromEnd) {
 			size_type count = static_cast<size_type>(fromEnd - fromBegin);
-			reAllocator newArray(count);
-			if (newArray.execute(fromBegin, fromEnd, CopyPredicate{})) {
+			Allocator newArray(count);
+			if (newArray.execute(CopyPredicate{ fromBegin , fromEnd })) {
 				clear();//no op if already empty
 				memFree();//no op if already nullptr
 				array = newArray.release();
@@ -222,20 +248,24 @@ namespace seq {
 		}
 		explicit Sequence(size_type count) requires std::default_initializable<T>  {
 			if (count > 0) {
-				array = memAlloc(count);
-				cap = count;
-				mSize = count;
+				Allocator newArray(count);
 
-				std::uninitialized_value_construct_n(array, count);
+				if (newArray.execute(ValueConstructPredicate{count})) {
+					array = newArray.release();
+					cap = count;
+					mSize = count;
+				}
 			}
 		}
 		Sequence(size_type count, const_reference value) requires std::copyable<T> {
 			if (count > 0) {
-				array = memAlloc(count);
-				cap = count;
-				mSize = count;
+				Allocator newArray(count);
 
-				std::uninitialized_fill_n(array, count, value);
+				if (newArray.execute(FillConstructNPredicate{ count, value })) {
+					array = newArray.release();
+					cap = count;
+					mSize = count;
+				}
 			}
 		}
 		Sequence(const Sequence& rhs) requires std::copyable<T> {
