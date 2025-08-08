@@ -18,7 +18,8 @@
 #include <type_traits>
 
 /*
-top most level sequence must be object type and it can not be cosnt
+IMPORTANT!!!
+			consider how to communnicate failure (currently realloc handles but fails silently)
 */
 namespace seq {
 
@@ -44,7 +45,68 @@ namespace seq {
 
 		using iterator = Iterator;
 		using const_iterator = Const_Iterator;
+
 	private:
+		class CopyPredicate {
+		public:
+			pointer operator()(pointer p1Begin, pointer p1End, pointer p2Begin) {
+				return std::uninitialized_copy(p1Begin, p1End, p2Begin);
+			}
+		};
+		class MovePredicate {
+		public:
+			pointer operator()(pointer p1Begin, pointer p1End, pointer p2Begin) {
+				return std::uninitialized_move(p1Begin, p1End, p2Begin);
+			}
+		};
+		class reAllocator {
+			pointer mem = nullptr;
+			size_type amount = 0;
+			
+			pointer memAlloc(size_type amount) {
+				void* bytes = ::operator new(amount * sizeof(value_type));
+				return static_cast<pointer>(bytes);
+			}
+			void cleanUp() {
+				if (mem) {
+					::operator delete(mem, amount * sizeof(value_type));
+					mem = nullptr;
+				}
+			}
+		public:
+			reAllocator(size_type amount) :amount(amount) {}
+
+			template <typename Pred>
+			bool execute(pointer begin, pointer end, Pred pred) {
+				try {
+					mem = memAlloc(amount);
+				}
+				catch (std::bad_alloc& badalloc) {
+					return false;
+				}
+				pointer current = mem;
+				try {
+					current = pred(begin, end, mem);
+				}
+				catch (...) {
+					std::destroy(mem, current);//predicate calls move or copy which iterates internally, meaning mem -> current becomes a range
+					cleanUp();
+					return false;
+				}
+				return true;
+			}
+
+			pointer release()noexcept {
+				pointer temp = mem;
+				mem = nullptr;
+				return temp;
+			}
+
+			~reAllocator() {
+				cleanUp();
+			}
+		};
+
 		//private members
 		pointer memAlloc(size_type amount) {
 			void* bytes = ::operator new(amount * sizeof(value_type));
@@ -76,12 +138,13 @@ namespace seq {
 				reAlloc(growthFactor(cap));
 		}
 		void reAlloc(size_type newCap) {
-			pointer newArray = memAlloc(newCap);
-			std::uninitialized_move(raw_begin(), raw_end(), newArray);
-			std::destroy(raw_begin(), raw_end());
-			memFree();
-			array = newArray;
-			cap = newCap;
+			reAllocator newArray(newCap);
+			if (newArray.execute(raw_begin(), raw_end(), MovePredicate{})) {
+				std::destroy(raw_begin(), raw_end());
+				memFree();
+				array = newArray.release();
+				cap = newCap;
+			}
 		}
 		pointer eraseImpl(const_iterator pos) {
 			if (pos < begin() || pos >= end()) {
@@ -137,13 +200,17 @@ namespace seq {
 			--mSize;
 			return dest;
 		}
+
 		void uninitCopy(const_pointer  fromBegin, const_pointer  fromEnd) {
 			size_type count = static_cast<size_type>(fromEnd - fromBegin);
-			array = memAlloc(count);
-			mSize = count;
-			cap = count;
-
-			std::uninitialized_copy(fromBegin, fromEnd, array);
+			reAllocator newArray(count);
+			if (newArray.execute(fromBegin, fromEnd, CopyPredicate{})) {
+				clear();//no op if already empty
+				memFree();//no op if already nullptr
+				array = newArray.release();
+				cap = count;
+				mSize = count;
+			}
 		}
 	public:
 		//CONSTRUCTORS
