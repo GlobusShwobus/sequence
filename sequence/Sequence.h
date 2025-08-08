@@ -124,7 +124,7 @@ namespace seq {
 			return pfirst;
 		}
 		pointer removeImpl(const_iterator pos) {
-			if (pos < begin() && pos >= end()) {
+			if (pos < begin() || pos >= end()) {
 				throw std::out_of_range("position out of range");
 			}
 
@@ -278,13 +278,13 @@ namespace seq {
 			std::construct_at(raw_end(), std::forward<Args>(args)...);
 			++mSize;
 		}
-		void pop_back()noexcept {
+		void pop_back()noexcept(std::is_nothrow_destructible_v<T>) {
 			if (mSize > 0) {
 				array[mSize - 1].~T();
 				--mSize;
 			}
 		}
-		void clear() noexcept{
+		void clear() noexcept(std::is_nothrow_destructible_v<T>) {
 			if (mSize > 0) {
 				std::destroy(raw_begin(), raw_end());
 				mSize = 0;
