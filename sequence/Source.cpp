@@ -1,57 +1,46 @@
 #include "Sequence.h"
+#include "Stopwatch.h"
 #include <vector>
-class triangle {
-public:
-	triangle() = default;
-	triangle(int ass) :x(ass) {}
-	int x = 0;
-};
-class Rectangle {
-public:
-	Rectangle() = default;
-	Rectangle(const Rectangle& c) = delete;
-	Rectangle& operator=(const Rectangle&) = delete;
-};
-class Rect2 {
-public:
-	Rect2() = delete;
-	~Rect2() = default;
-};
-class Rect3 {
-public:
-	Rect3() = default;
-	Rect3(Rect3&&)noexcept = delete;
-	Rect3& operator=(Rect3&&)noexcept = delete;
-	~Rect3() = default;
-};
 #include <iostream>
+#include <string>
+
+#define _CRTDBG_MAP_ALLOC  
+#include <stdlib.h>  
+#include <crtdbg.h>  
+#include <conio.h>
+
+
 using namespace seq;
 int main() {
+	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
+	_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
+	_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
 
-	Sequence<triangle> wow(200, {7});
-	Sequence<triangle> lols = wow;
-	std::cout << wow.size() << " " << wow.capacity() << "\n";
-	std::cout << lols.size() << " " << lols.capacity() << "\n";
-	wow.reserve(100);
-	wow.resize(50);
-	wow.shrinkToFit();
-	std::cout << wow.size() << " " << wow.capacity() << "\n";
-	wow.erase(wow.begin(), wow.begin() + 11);
-	std::cout << wow.size() << " " << wow.capacity() << "\n";
-	auto it = wow.begin() + 5;
-	it->x = 7;
-	std::cout << wow[5].x << '\n';
-	std::cout << wow.at(5).x << '\n';
-	wow.push_back({77});
-	int lol = 88;
-	triangle fuck(9);
-	wow.push_back(std::move(lol));
-	wow.push_back(fuck);//ok good
-	wow.clear();
-	wow.shrinkToFit();
-	std::cout << wow.size() << " " << wow.capacity() << "\n";
-	std::cout << lols.size() << " " << lols.capacity() << "\n";
+	{
+		std::string myMeme = "my memes are bad as bad as my cooking";
+		Stopwatch clock;
+		std::vector<std::string> vec;
+		for (int i = 0; i < 10000; i++) {
+			vec.push_back(myMeme);
+		}
+		auto time = clock.MarkMicroSec();
+		std::cout << "vec 10k pushes, always triggers realloc??? don't know: " << time.count() << " microsec\n";
+	}
+	{
+		std::string myMeme = "my memes are bad as bad as my cooking";
+		Stopwatch clock;
+		Sequence<std::string> seq;
+		for (int i = 0; i < 10000; i++) {
+			seq.push_back(myMeme);
+		}
+		auto time = clock.MarkMicroSec();
+		std::cout << "seq 10k pushes, always triggers realloc: " << time.count() << " microsec\n";
+	}
 
+	_CrtDumpMemoryLeaks();
 	return 0;
 
 }
