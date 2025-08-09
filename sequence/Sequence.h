@@ -258,7 +258,7 @@ namespace seq {
 				pointer newElemEnd = newElemStart;
 
 				try {
-					newElemEnd = std::uninitialized_default_construct(newElemStart, newElemStart + diff);
+					newElemEnd = std::uninitialized_default_construct_n(newElemStart, diff);
 				}
 				catch (...) {
 					std::destroy(newElemStart, newElemEnd);
