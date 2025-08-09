@@ -28,31 +28,29 @@ public:
 using namespace seq;
 int main() {
 
-	//Sequence<Rect2> mmmm;
-	//mmmm.resize(0);//should work
-	//mmmm.resize(1);//should fail
-
-
-	//Sequence<Rect3> mmmm;
-	//mmmm.resize(mmmm.capacity() + 1);//should fail, not movable
-
-	Sequence<triangle> wow;
-	Sequence<triangle> wow2 = wow;
-	wow.reserve(200);
-	wow.resize(100);
-
-	for (int i = 0; i < wow.size(); i++) {
-		wow[i] = {i};
-	}
+	Sequence<triangle> wow(200, {7});
+	Sequence<triangle> lols = wow;
+	std::cout << wow.size() << " " << wow.capacity() << "\n";
+	std::cout << lols.size() << " " << lols.capacity() << "\n";
+	wow.reserve(100);
+	wow.resize(50);
 	wow.shrinkToFit();
-	auto it = wow.begin() + 50;
-	std::cout << it->x << "\n";
-
-	//Sequence<Rectangle> mmmm2 = std::move(mmmm);
-	//std::vector<Rect2> meme;
-	//Sequence<Rect2> mmmm;
-	//std::vector<Rectangle> meme = meme;;
-
+	std::cout << wow.size() << " " << wow.capacity() << "\n";
+	wow.erase(wow.begin(), wow.begin() + 11);
+	std::cout << wow.size() << " " << wow.capacity() << "\n";
+	auto it = wow.begin() + 5;
+	it->x = 7;
+	std::cout << wow[5].x << '\n';
+	std::cout << wow.at(5).x << '\n';
+	wow.push_back({77});
+	int lol = 88;
+	triangle fuck(9);
+	wow.push_back(std::move(lol));
+	wow.push_back(fuck);//ok good
+	wow.clear();
+	wow.shrinkToFit();
+	std::cout << wow.size() << " " << wow.capacity() << "\n";
+	std::cout << lols.size() << " " << lols.capacity() << "\n";
 
 	return 0;
 
