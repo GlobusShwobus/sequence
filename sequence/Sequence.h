@@ -203,12 +203,8 @@ namespace seq {
 			}
 			return array[pos];
 		}
-		constexpr pointer data()noexcept {
-			return array;
-		}
-		constexpr const_pointer data()const noexcept {
-			return array;
-		}
+		constexpr pointer        data()noexcept         { return array; }
+		constexpr const_pointer  data()const noexcept   { return array; }
 		constexpr iterator       begin()noexcept        { return { array }; }
 		constexpr iterator       end()noexcept          { return { array + mSize }; }
 		constexpr const_iterator begin()const noexcept  { return { array }; }
@@ -268,7 +264,18 @@ namespace seq {
 					static_assert(std::move_constructible<T>, "T must be move constructible");
 					moveAlloc(growthFactor(count));
 				}
-				std::uninitialized_default_construct(raw_end(), raw_begin() + count);
+
+				size_type diff = count - mSize;
+				pointer newElemStart = raw_end();
+				pointer newElemEnd = newElemStart;
+
+				try {
+					newElemEnd = std::uninitialized_default_construct(newElemStart, newElemStart + diff);
+				}
+				catch (...) {
+					std::destroy(newElemStart, newElemEnd);
+					throw;
+				}
 				mSize = count;
 			}
 			else {
