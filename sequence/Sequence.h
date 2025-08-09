@@ -1,10 +1,3 @@
-/*
-* EXCEPTIONS::
-*	copyAlloc and moveAlloc provide strong guarantees existing memory does not get fucked over
-*	however if an allocation fails
-* 
-*/
-
 #pragma once
 
 #include <stdexcept>
@@ -13,11 +6,6 @@
 #include <concepts>
 #include <type_traits>
 
-/*
-IMPORTANT!!!
-			eraseImpl, eraseRangeImpl, remove and removeImpl all use std::move which can fail
-			consider how to communnicate failure (currently moveAlloc handles but fails silently)
-*/
 namespace seq {
 
 	template <typename T>
