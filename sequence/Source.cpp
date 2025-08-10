@@ -19,6 +19,39 @@ int main() {
 	_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
 	_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
 
+
+	{
+		class trig {
+		public:
+			trig() = default;
+			~trig() = default;
+			trig(const trig&) = default;
+			trig& operator=(const trig&) = default;
+			trig(trig&&) {}//not strong movable because no noexcept promise
+			trig& operator=(trig&& aa) { return *this; }//same as above
+
+		};
+
+		class bob {
+		public:
+			bob(const bob&) = default;
+			bob() = default;
+		};
+
+
+		Sequence<trig> lol;
+		Sequence<bob> bobs;
+		bob a1;
+		bobs.push_back(a1);
+
+
+		//trig haha;
+		//lol.push_back(std::move(haha));//shit...defaulted to copy
+		//lol.erase(lol.begin());
+
+
+	}
+	/*
 	{
 		std::string myMeme = "my memes are bad as bad as my cooking";
 		Stopwatch clock;
@@ -41,7 +74,7 @@ int main() {
 		std::cout << "seq 10k resize, always triggers realloc: " << time.count() << " microsec\n";
 		std::cout << "seq size and cap" << seq.size() << "   " << seq.capacity() << '\n';
 	}
-
+	*/
 	_CrtDumpMemoryLeaks();
 	return 0;
 

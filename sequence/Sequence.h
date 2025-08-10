@@ -7,6 +7,8 @@
 #include <type_traits>
 
 namespace seq {
+	template <typename T>
+	concept strong_movable = std::movable<T>&& std::is_nothrow_move_constructible_v<T>&& std::is_nothrow_move_assignable_v<T>;
 
 	template <typename T>
 	class Sequence {
@@ -34,8 +36,7 @@ namespace seq {
 	private:
 		
 		void moveAlloc(size_type count) {
-			pointer moved = static_cast<pointer>(::operator new(count * sizeof(value_type)));//can throw bad alloc, don't care, propagate it up
-			
+			pointer moved = static_cast<pointer>(::operator new(count * sizeof(value_type)));//can throw bad alloc, no mem is ever allocated, propagade up
 			pointer begin = raw_begin();
 			pointer end = raw_end();
 			pointer initialized = moved;
@@ -50,20 +51,22 @@ namespace seq {
 			}
 			catch (...) {
 				std::destroy(moved, initialized);
-				::operator delete(moved, count * sizeof(value_type));
+				::operator delete(moved);
 				throw;
 			}
 			
 			std::destroy(begin, end);
-			::operator delete(array, cap * sizeof(value_type));
+			::operator delete(array);
 
 			array = moved;
 			cap = count;
 			//mSize unchanged
 		}
 		void copyAlloc(const_pointer begin, const_pointer end, size_type count) {
+			if (begin == end) return;
+
 			if ((mSize + count) > cap) {
-				moveAlloc(count);//can throw, nothing is copied either
+				moveAlloc(mSize + count);//can throw, nothing is copied either
 			}
 			pointer dest = raw_end();
 			pointer initialized = dest;
@@ -81,9 +84,15 @@ namespace seq {
 		//private members
 		void memFree() {
 			if (array) {
-				::operator delete(array, cap * sizeof(value_type));
+				::operator delete(array);
 				array = nullptr;
 				cap = 0;
+			}
+		}
+		void objDestroyAll() {
+			if (mSize > 0) {
+				std::destroy(raw_begin(), raw_end());
+				mSize = 0;
 			}
 		}
 		constexpr pointer raw_begin()const {
@@ -98,76 +107,94 @@ namespace seq {
 	public:
 		//CONSTRUCTORS
 		Sequence()noexcept :array(nullptr), mSize(0), cap(0) {}
-		Sequence(std::initializer_list<value_type> init) requires std::copyable<T> {
-			if (init.size() > 0) {
-				copyAlloc(init.begin(), init.end(), init.size());
-			}
+		Sequence(std::initializer_list<value_type> init) requires std::copyable<value_type> {
+			if (init.size() == 0)
+				return;
+			copyAlloc(init.begin(), init.end(), init.size());
 		}
-		explicit Sequence(size_type count) requires std::default_initializable<T>  {
-			if (count > 0) {
-				pointer defaultConstruct = static_cast<pointer>(::operator new(count * sizeof(value_type)));//can throw bad alloc, don't care, propagate it up
-				std::uninitialized_value_construct_n(defaultConstruct, count);//can throw, not propagate
-				array = defaultConstruct;
-				cap = count;
-				mSize = count;
+		explicit Sequence(size_type count) requires std::default_initializable<value_type> {
+			if (count == 0)
+				return;
+			pointer defaultConstruct = static_cast<pointer>(::operator new(count * sizeof(value_type)));//can throw bad alloc, don't care, propagate it up
+			pointer initialized = defaultConstruct;
+			try {
+				initialized = std::uninitialized_value_construct_n(defaultConstruct, count);
 			}
-		}
-		Sequence(size_type count, const_reference value) requires std::copyable<T> {
-			if (count > 0) {
-				pointer defaultConstruct = static_cast<pointer>(::operator new(count * sizeof(value_type)));//can throw bad alloc, don't care, propagate it up
-				std::uninitialized_fill_n(defaultConstruct, count, value);//can throw, propagte, not my problem lel
-				array = defaultConstruct;
-				cap = count;
-				mSize = count;
+			catch (...) {
+				std::destroy(defaultConstruct, initialized);
+				::operator delete(defaultConstruct);
+				throw;
 			}
+			array = defaultConstruct;
+			cap = count;
+			mSize = count;
 		}
-		Sequence(const Sequence& rhs) requires std::copyable<T> {
-			if (rhs.isValid()) {
-				copyAlloc(rhs.raw_begin(), rhs.raw_end(), rhs.size());
+		Sequence(size_type count, const_reference value) requires std::copyable<value_type> {
+			if (count == 0)
+				return;
+			pointer defaultConstruct = static_cast<pointer>(::operator new(count * sizeof(value_type)));//can throw bad alloc, don't care, propagate it up
+			pointer initialized = defaultConstruct;
+			try {
+				initialized = std::uninitialized_fill_n(defaultConstruct, count, value);
 			}
+			catch (...) {
+				std::destroy(defaultConstruct, initialized);
+				::operator delete(defaultConstruct);
+				throw;
+			}
+			array = defaultConstruct;
+			cap = count;
+			mSize = count;
 		}
-		constexpr Sequence(Sequence&& rhs)noexcept {
+		Sequence(const Sequence& rhs) requires std::copyable<value_type> {
+			if (!rhs.isValid())
+				return;
+			copyAlloc(rhs.raw_begin(), rhs.raw_end(), rhs.size());
+		}
+		constexpr Sequence(Sequence&& rhs)noexcept {//shallow copy theft, no need for requirements
 			array = std::exchange(rhs.array, nullptr);
 			mSize = std::exchange(rhs.mSize, 0);
 			cap = std::exchange(rhs.cap, 0);
 		}
-		Sequence& operator=(const Sequence& rhs)requires std::copyable<T> {
-			if (this != &rhs) {
+		Sequence& operator=(const Sequence& rhs)requires std::copyable<value_type> {
+			if (this == &rhs)
+				return *this;
 
-				if (rhs.isValid()) {
-					copyAlloc(rhs.raw_begin(), rhs.raw_end(), rhs.size());//
-				}
-				else {//implying that the desire for some reason is to copy an empty vector to this
-					clear();
-					memFree();
-				}
+			if (!rhs.isValid()) {
+				objDestroyAll();
+				//memFree(); for the sake of future allocation, just don't free mem
+				return *this;
 			}
+
+			copyAlloc(rhs.raw_begin(), rhs.raw_end(), rhs.size());
 			return *this;
 		}
-		Sequence& operator=(Sequence&& rhs)noexcept {
-			if (this != &rhs) {
-				clear();
-				memFree();
+		Sequence& operator=(Sequence&& rhs)noexcept {//shallow copy theft, no need for requirements
+			if (this == &rhs)
+				return *this;
 
-				array = std::exchange(rhs.array, nullptr);
-				mSize = std::exchange(rhs.mSize, 0);
-				cap = std::exchange(rhs.cap, 0);
-			}
+			objDestroyAll();
+			memFree();
+
+			array = std::exchange(rhs.array, nullptr);
+			mSize = std::exchange(rhs.mSize, 0);
+			cap = std::exchange(rhs.cap, 0);
+
 			return *this;
 		}
-		Sequence& operator=(std::initializer_list<value_type> ilist) requires std::copyable<T>{
-			if (ilist.size() > 0) {
-				copyAlloc(ilist.begin(), ilist.end(), ilist.size());
+		Sequence& operator=(std::initializer_list<value_type> ilist) requires std::copyable<value_type>{
+			if (ilist.size() == 0) {
+				objDestroyAll();
+				//memFree(); for the sake of future allocation, just don't free mem
+				return *this;
 			}
-			else {
-				clear();
-				memFree();
-			}
+
+			copyAlloc(ilist.begin(), ilist.end(), ilist.size());
 			return *this;
 		}
 
-		~Sequence() {//putting a requirement here will cause a misleading error, though would be more correct
-			clear();
+		~Sequence() {//putting a requirement here will cause a misleading error
+			objDestroyAll();
 			memFree();
 		}
 		//#################################################
@@ -202,23 +229,23 @@ namespace seq {
 		//#################################################
 
 		//MODIFICATION
-		void push_back(const_reference value) requires std::copyable<T> {
+		void push_back(const_reference value) requires std::copyable<value_type> {
 			if (mSize == cap)
 				moveAlloc(growthFactor(cap));
 			std::construct_at(raw_end(), value);//but this can and will fail as well if above failed because the capacity is not enough
 			++mSize;
 		}
-		void push_back(T&& value) requires std::movable<T> {
+		void push_back(T&& value) requires strong_movable<value_type> {
 			if (mSize == cap)
 				moveAlloc(growthFactor(cap));
 			std::construct_at(raw_end(), std::move(value));
 			++mSize;
 		}
-		void emplace_back(T&& value) requires std::movable<T>{
+		void emplace_back(T&& value) requires strong_movable<value_type> {
 			push_back(std::move(value));
 		}
 		template<typename... Args>
-		void emplace_back(Args&&... args) requires std::constructible_from<T, Args&&...>{
+		void emplace_back(Args&&... args) requires std::constructible_from<value_type, Args&&...>{
 			if (mSize == cap)
 				moveAlloc(growthFactor(cap));
 			std::construct_at(raw_end(), std::forward<Args>(args)...);
@@ -228,12 +255,6 @@ namespace seq {
 			if (mSize > 0) {
 				array[mSize - 1].~T();
 				--mSize;
-			}
-		}
-		void clear() noexcept(std::is_nothrow_destructible_v<T>) {
-			if (mSize > 0) {
-				std::destroy(raw_begin(), raw_end());
-				mSize = 0;
 			}
 		}
 		void resize(size_type count) {
@@ -270,7 +291,7 @@ namespace seq {
 				static_assert(std::default_initializable<T>, "T must be default initializable");
 			}
 		}
-		iterator erase(const_iterator pos)requires std::movable<T> {
+		iterator erase(const_iterator pos)requires strong_movable<value_type> {
 			if (pos < begin() || pos >= end()) {
 				throw std::out_of_range("position out of range");
 			}
@@ -281,10 +302,10 @@ namespace seq {
 			
 			return iterator((pPos == raw_end()) ? raw_end() : pPos);
 		}
-		iterator erase(iterator pos)requires std::movable<T> {
+		iterator erase(iterator pos)requires strong_movable<value_type> {
 			return erase(const_iterator(pos));
 		}
-		iterator erase(const_iterator first, const_iterator last)requires std::movable<T> {
+		iterator erase(const_iterator first, const_iterator last)requires strong_movable<value_type> {
 			if (first < begin() || first >= last || last >= end()) {
 				throw std::out_of_range("position out of range");
 			}
@@ -308,10 +329,10 @@ namespace seq {
 			
 			return iterator((pfirst == raw_end()) ? raw_end() : pfirst);
 		}
-		iterator erase(iterator first, iterator last)requires std::movable<T> {
+		iterator erase(iterator first, iterator last)requires strong_movable<value_type> {
 			return erase(const_iterator(first), const_iterator(last));
 		}
-		iterator remove(const_iterator pos)requires std::movable<T> {
+		iterator remove(const_iterator pos)requires strong_movable<value_type> {
 			if (pos < begin() || pos >= end()) {
 				throw std::out_of_range("position out of range");
 			}
@@ -326,11 +347,11 @@ namespace seq {
 
 			return iterator(dest);
 		}
-		iterator remove(iterator pos)requires std::movable<T> {
+		iterator remove(iterator pos)requires strong_movable<value_type> {
 			return remove(const_iterator(pos));
 		}
 		template <typename UnaryPred>
-		iterator remove(UnaryPred predicate) requires std::movable<T> {
+		iterator remove(UnaryPred predicate) requires strong_movable<value_type> {
 			pointer last = raw_end() - 1;
 			pointer current = raw_begin();
 
@@ -378,20 +399,23 @@ namespace seq {
 
 
 		//CAPACITY
-		constexpr bool      isEmpty()const noexcept{ return mSize == 0; }
-		constexpr bool      isValid()const noexcept { return array; }
-		constexpr size_type size()const noexcept{ return mSize; }
-		constexpr size_type capacity()const noexcept{ return cap; }
+		constexpr bool      isEmpty()const noexcept  { return mSize == 0; }
+		constexpr bool      isValid()const noexcept  { return array; }
+		constexpr size_type size()const noexcept     { return mSize; }
+		constexpr size_type capacity()const noexcept { return cap; }
 
-		void reserve(size_type newCap) requires std::movable<T> {
+		void reserve(size_type newCap) requires std::movable<value_type> {
 			if (newCap > cap) {
 				moveAlloc(newCap);
 			}
 		}
-		void shrinkToFit() requires std::movable<T> {
-			if (cap > mSize) {//moveAlloc sets the cap only, so if this function is called twice in a raw, just skip it entirely, otherwise if it grows in between the situation changed
+		void shrinkToFit() requires std::movable<value_type> {
+			if (cap > mSize) {
 				moveAlloc(size());
 			}
+		}
+		void clear() noexcept(std::is_nothrow_destructible_v<value_type>) {
+			objDestroyAll();
 		}
 		//#################################################
 	private:
