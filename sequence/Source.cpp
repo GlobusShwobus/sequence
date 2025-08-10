@@ -19,62 +19,57 @@ int main() {
 	_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
 	_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
 
-
+	class asstangle {
+		int x;
+		int y;
+		int asswidth;
+		int assheight;
+	public:
+		asstangle() = default;
+		asstangle(int a, int b, int c, int l) :x(a), y(b), asswidth(c), assheight(l) {}
+	};
 	{
-		class trig {
-		public:
-			trig() = default;
-			~trig() = default;
-			trig(const trig&) = default;
-			trig& operator=(const trig&) = default;
-			trig(trig&&) {}//not strong movable because no noexcept promise
-			trig& operator=(trig&& aa) { return *this; }//same as above
-
-		};
-
-		class bob {
-		public:
-			bob(const bob&) = default;
-			bob() = default;
-		};
-
-
-		Sequence<trig> lol;
-		Sequence<bob> bobs;
-		bob a1;
-		bobs.push_back(a1);
-
-
-		//trig haha;
-		//lol.push_back(std::move(haha));//shit...defaulted to copy
-		//lol.erase(lol.begin());
-
-
-	}
-	/*
-	{
-		std::string myMeme = "my memes are bad as bad as my cooking";
 		Stopwatch clock;
-		std::vector<std::string> vec;
-		for (size_t i = 0; i < 10000; i++) {
-			vec.resize(i);
+		std::vector<asstangle> vec;
+		for (int i = 0; i < 10000; i++) {
+			vec.push_back({ i + i,i + i + i,i + i + i + i,i + i + i + i + i });
 		}
 		auto time = clock.MarkMicroSec();
-		std::cout << "vec 10k resize, always triggers realloc??? don't know: " << time.count() << " microsec\n";
-		std::cout << "vec size and cap" << vec.size() << "   " << vec.capacity() << '\n';
+		std::cout << "vec 10k empalcebacks, always triggers realloc??? don't know: " << time.count() << " microsec\n";
 	}
 	{
-		std::string myMeme = "my memes are bad as bad as my cooking";
 		Stopwatch clock;
-		Sequence<std::string> seq;
-		for (size_t i = 0; i < 10000; i++) {
-			seq.resize(i);
+		Sequence<asstangle> seq;
+		for (int i = 0; i < 10000; i++) {
+			seq.push_back({i + i, i + i + i, i + i + i + i, i + i + i + i + i});
 		}
 		auto time = clock.MarkMicroSec();
 		std::cout << "seq 10k resize, always triggers realloc: " << time.count() << " microsec\n";
-		std::cout << "seq size and cap" << seq.size() << "   " << seq.capacity() << '\n';
 	}
-	*/
+	{
+		Sequence<asstangle> asses(69);
+		asses.pop_back();
+		asses.pop_back();
+		asses.pop_back();
+		asses.pop_back();
+	}
+	{
+		Sequence<asstangle> asses2;
+		auto it = asses2.begin();
+		if (it.base() == nullptr) {
+			std::cout << "i am stupid\n";
+		}
+		it++;
+
+		//std::vector<asstangle> asses2;
+		//auto it = asses2.end();
+		//if (it._Ptr == nullptr) {
+		//	std::cout << "i am stupid\n";
+		//}
+		//it++;
+
+	}
+	
 	_CrtDumpMemoryLeaks();
 	return 0;
 
