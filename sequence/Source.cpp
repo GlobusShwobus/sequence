@@ -52,14 +52,26 @@ int main() {
 		asses.pop_back();
 		asses.pop_back();
 		asses.pop_back();
+
+		Sequence<asstangle> asses2 = asses;
+		std::cout << "\n asses2: " << asses2.size() << " " << asses2.capacity();
+
+		asses2.resize(420);
+		std::cout << "\n asses2: " << asses2.size() << " " << asses2.capacity();
+		asses = asses2;
+		std::cout << "\n asses: " << asses.size() << " " << asses.capacity();
+		asses.resize(15);
+		std::cout << "\n asses: " << asses.size() << " " << asses.capacity();
+		asses2 = asses;
+		std::cout << "\n asses2: " << asses2.size() << " " << asses2.capacity();
 	}
 	{
-		Sequence<asstangle> asses2;
-		auto it = asses2.begin();
-		if (it.base() == nullptr) {
-			std::cout << "i am stupid\n";
-		}
-		it++;
+		//Sequence<asstangle> asses2;
+		//auto it = asses2.begin();
+		//if (it.base() == nullptr) {
+		//	std::cout << "i am stupid\n";
+		//}
+		//it++;
 
 		//std::vector<asstangle> asses2;
 		//auto it = asses2.end();

@@ -62,8 +62,14 @@ namespace seq {
 			cap = count;
 			//mSize unchanged
 		}
-		void appendAlloc(const_pointer begin, const_pointer end, size_type count) {
-			if (begin == end) return;
+		// In copy assignment scenarios, this basically acts as a += operator which is wrong.
+		// but it returns a pointer to the end point before anything was appended into the array
+		// then after calling this fun, erase should be used to remove the old section
+		// erase does nothing anyway if begin == end
+		// in copy construction scenarios, no extra steps required because it would append to the zero position
+		// (otherwise it would be a pretty involved function which yeah, fuck it)
+		pointer appendAlloc(const_pointer begin, const_pointer end, size_type count) {
+			if (begin == end) return raw_begin(); //erase is called from begin, if early return is also begin, then begin == begin == NO OP, good
 
 			if ((mSize + count) > cap) {
 				moveAlloc(mSize + count);
@@ -75,10 +81,12 @@ namespace seq {
 				initialized = std::uninitialized_copy(begin, end, dest);
 			}
 			catch (...) {
-				std::destroy(dest, initialized); 
+				std::destroy(dest, initialized);
 				throw;
 			}
+
 			mSize += count;
+			return dest;
 		}
 		//#################################################
 		
@@ -167,8 +175,8 @@ namespace seq {
 				//memFree(); for the sake of future allocation, just don't free mem
 				return *this;
 			}
-			objDestroyAll();//is bug if old items are not let go of (means +=), but freeing mem not neccessary
-			appendAlloc(rhs.raw_begin(), rhs.raw_end(), rhs.size());
+			pointer old_end = appendAlloc(rhs.raw_begin(), rhs.raw_end(), rhs.size());
+			erase(const_iterator(raw_begin()), const_iterator(old_end));
 			return *this;
 		}
 		Sequence& operator=(Sequence&& rhs)noexcept {//shallow copy theft, no need for requirements
@@ -190,8 +198,8 @@ namespace seq {
 				//memFree(); for the sake of future allocation, just don't free mem
 				return *this;
 			}
-			objDestroyAll();//is bug if old items are not let go of (means +=), but freeing mem not neccessary
-			appendAlloc(ilist.begin(), ilist.end(), ilist.size());
+			pointer old_end = appendAlloc(ilist.begin(), ilist.end(), ilist.size());
+			erase(const_iterator(raw_begin()), const_iterator(old_end));
 			return *this;
 		}
 
@@ -203,11 +211,11 @@ namespace seq {
 
 		//ACCESS
 		constexpr reference operator[](size_type index) {
-			assert(index < mSize && "out of range position")
+			assert(index < mSize && "out of range position");
 			return array[index];
 		}
 		constexpr const_reference operator[](size_type index)const {
-			assert(index < mSize && "out of range position")
+			assert(index < mSize && "out of range position");
 			return array[index]; 
 		}
 		constexpr reference at(size_type pos) {
@@ -270,9 +278,9 @@ namespace seq {
 				return;
 			}
 			// if T is default constructible, may need moveAlloc in which case need movable
-			if constexpr (std::default_initializable<T>) {
+			if constexpr (std::default_initializable<value_type>) {
 				if (count > cap) {
-					static_assert(std::move_constructible<T>, "T must be move constructible");
+					static_assert(std::move_constructible<value_type>, "T must be move constructible");
 					moveAlloc(growthFactor(count));
 				}
 
@@ -290,7 +298,7 @@ namespace seq {
 				mSize = count;
 			}
 			else {
-				static_assert(std::default_initializable<T>, "T must be default initializable");
+				static_assert(std::default_initializable<value_type>, "T must be default initializable");
 			}
 		}
 		iterator erase(const_iterator pos)requires strong_movable<value_type> {
@@ -299,7 +307,7 @@ namespace seq {
 			}
 			pointer pPos = const_cast<pointer>(pos.base());
 			std::move(pPos + 1, raw_end(), pPos);//move all elements 1 space
-			array[mSize - 1].~T();//end is dangling, delete it
+			array[mSize - 1].~value_type();//end is dangling, delete it
 			--mSize;
 			
 			return iterator((pPos == raw_end()) ? raw_end() : pPos);
