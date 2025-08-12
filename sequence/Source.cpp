@@ -47,7 +47,7 @@ int main() {
 		std::cout << "seq 10k resize, always triggers realloc: " << time.count() << " microsec\n";
 	}
 	{
-		Sequence<asstangle> asses(69);
+		Sequence<asstangle> asses(69, {1,2,3,4});
 		asses.pop_back();
 		asses.pop_back();
 		asses.pop_back();

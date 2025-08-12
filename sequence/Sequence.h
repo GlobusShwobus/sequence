@@ -62,24 +62,22 @@ namespace seq {
 			cap = count;
 			//mSize unchanged
 		}
-		void copyAlloc(const_pointer begin, const_pointer end, size_type count) {
-			if (begin == end) return;
-
-			if (count > cap) {
-				moveAlloc(count);
-			}
-			pointer dest = raw_end();
-			pointer initialized = dest;
+		template <typename Construct>
+		void tryElemConstructAlloc(size_type count, Construct construct) {
+			pointer tempMem = static_cast<pointer>(::operator new(count * sizeof(value_type)));
+			pointer initalizedTail = tempMem;
 
 			try {
-				initialized = std::uninitialized_copy(begin, end, dest);
+				initalizedTail = construct(tempMem, count);
 			}
 			catch (...) {
-				std::destroy(dest, initialized);
+				std::destroy(tempMem, initalizedTail);
+				::operator delete(tempMem);
 				throw;
 			}
-
+			array = std::exchange(tempMem, nullptr);
 			mSize = count;
+			cap = count;
 		}
 		//#################################################
 		
@@ -103,81 +101,45 @@ namespace seq {
 		//#################################################
 	public:
 		//CONSTRUCTORS
-		Sequence()noexcept :array(nullptr), mSize(0), cap(0) {}
-		Sequence(std::initializer_list<value_type> init) requires std::copyable<value_type> {
-			if (init.size() == 0)
-				return;
-			copyAlloc(init.begin(), init.end(), init.size());
-		}
-		explicit Sequence(size_type count) requires std::default_initializable<value_type> {
-			if (count == 0)
-				return;
-			pointer defaultConstruct = static_cast<pointer>(::operator new(count * sizeof(value_type)));
-			pointer initialized = defaultConstruct;
-			try {
-				initialized = std::uninitialized_default_construct_n(defaultConstruct, count);
-			}
-			catch (...) {
-				std::destroy(defaultConstruct, initialized);
-				::operator delete(defaultConstruct);
-				throw;
-			}
-			array = defaultConstruct;
-			cap = count;
-			mSize = count;
+		Sequence()noexcept = default;
+		Sequence(size_type count) requires std::default_initializable<value_type> {
+			if (count == 0) return;
+			tryElemConstructAlloc(count, [](pointer p, size_type n) {
+				return std::uninitialized_default_construct_n(p, n);
+				}
+			);
 		}
 		Sequence(size_type count, const_reference value) requires std::copyable<value_type> {
 			if (count == 0)
 				return;
-			pointer defaultConstruct = static_cast<pointer>(::operator new(count * sizeof(value_type)));//can throw bad alloc, don't care, propagate it up
-			pointer initialized = defaultConstruct;
-			try {
-				initialized = std::uninitialized_fill_n(defaultConstruct, count, value);
-			}
-			catch (...) {
-				std::destroy(defaultConstruct, initialized);
-				::operator delete(defaultConstruct);
-				throw;
-			}
-			array = defaultConstruct;
-			cap = count;
-			mSize = count;
+			tryElemConstructAlloc(count, [&value](pointer p, size_type n) {
+				return std::uninitialized_fill_n(p, n, value);
+				}
+			);
+		}
+		Sequence(std::initializer_list<value_type> init) requires std::copyable<value_type> {
+			if (init.size() == 0)
+				return;
+			tryElemConstructAlloc(init.size(), [init](pointer p, size_type n) {
+				return std::uninitialized_copy(init.begin(), init.end(), p);
+				}
+			);
 		}
 		Sequence(const Sequence& rhs) requires std::copyable<value_type> {
 			if (!rhs.isValid())
 				return;
-			copyAlloc(rhs.raw_begin(), rhs.raw_end(), rhs.size());
+			tryElemConstructAlloc(rhs.size(), [&rhs](pointer p, size_type n) {
+				return std::uninitialized_copy(rhs.raw_begin(), rhs.raw_end(), p);
+				}
+			);
 		}
 		constexpr Sequence(Sequence&& rhs)noexcept {//shallow copy theft, no need for requirements
 			array = std::exchange(rhs.array, nullptr);
 			mSize = std::exchange(rhs.mSize, 0);
 			cap = std::exchange(rhs.cap, 0);
 		}
-		Sequence& operator=(const Sequence& rhs)requires std::copyable<value_type> {
-			if (this == &rhs)
-				return *this;
-
-			if (!rhs.isValid()) {//implies user wants to delete old mem
-				objDestroyAll();
-				//memFree(); for the sake of future allocation, just don't free mem
-				return *this;
-			}
-
-			Sequence temp(rhs);
-			temp.swap(*this)
-			return *this;
-		}
-		Sequence& operator=(Sequence&& rhs)noexcept {//shallow copy theft, no need for requirements
-			if (this == &rhs)
-				return *this;
-
-			objDestroyAll();
-			memFree();
-
-			array = std::exchange(rhs.array, nullptr);
-			mSize = std::exchange(rhs.mSize, 0);
-			cap = std::exchange(rhs.cap, 0);
-
+		Sequence& operator=(Sequence rhs)noexcept {//AND THE LORD SAID LET THERE BE LIGHT
+			rhs.swap(*this);
 			return *this;
 		}
 		Sequence& operator=(std::initializer_list<value_type> ilist) requires std::copyable<value_type>{
@@ -190,8 +152,7 @@ namespace seq {
 			temp.swap(*this);
 			return *this;
 		}
-
-		~Sequence()noexcept {//putting a requirement here will cause a misleading error
+		~Sequence()noexcept {//putting a requirement here will cause a misleading error, noexcept is implict anyway but fuck it
 			objDestroyAll();
 			memFree();
 		}
