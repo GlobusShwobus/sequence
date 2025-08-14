@@ -250,34 +250,33 @@ namespace seq {
 				static_assert(std::default_initializable<value_type>, "T must be default initializable");
 			}
 		}
-		iterator erase(const_iterator pos)requires strong_movable<value_type> {
+		iterator erase(iterator pos)requires strong_movable<value_type> {
 			if (pos < begin() || pos >= end()) {
 				throw std::out_of_range("position out of range");
 			}
-			pointer pPos = const_cast<pointer>(pos.base());
-			std::move(pPos + 1, raw_end(), pPos);//move all elements 1 space
+
+			pointer pBase = pos.base();
+			std::move(pBase + 1, raw_end(), pBase);//move all elements 1 space
 			array[mSize - 1].~value_type();//end is dangling, delete it
 			--mSize;
 			
-			return iterator((pPos == raw_end()) ? raw_end() : pPos);
+			return (pBase == raw_end()) ? raw_end() : pBase;
 		}
-		iterator erase(iterator pos)requires strong_movable<value_type> {
-			return erase(const_iterator(pos));
-		}
-		iterator erase(const_iterator first, const_iterator last)requires strong_movable<value_type> {
+		iterator erase(iterator first, iterator last)requires strong_movable<value_type> {
 			if (first < begin() || first >= last || last >= end()) {
 				throw std::out_of_range("position out of range");
 			}
-			pointer pfirst = const_cast<pointer>(first.base());
-			pointer plast = const_cast<pointer>(last.base());
+			pointer pfirst = first.base();
+			pointer plast = last.base();
+
 			if (pfirst == plast)//if first and last is same element, then no op
-				return iterator(pfirst);
+				return pfirst;
 
 			pointer endPtr = raw_end();
 			if (plast == endPtr) {//if last is one off the end, then delete start to end
 				std::destroy(pfirst, endPtr);
 				mSize = pfirst - raw_begin();
-				return iterator(raw_end());
+				return raw_end();
 			}
 			//else if last is not one off the end
 			std::move(plast, endPtr, pfirst);//move all elements
@@ -285,29 +284,22 @@ namespace seq {
 			pointer destroyBegin = pfirst + (endPtr - plast);
 			std::destroy(destroyBegin, endPtr);//remove the dangling tail end
 			mSize -= (endPtr - destroyBegin);
-			
-			return iterator((pfirst == raw_end()) ? raw_end() : pfirst);
+
+			return (pfirst == raw_end()) ? raw_end() : pfirst;
 		}
-		iterator erase(iterator first, iterator last)requires strong_movable<value_type> {
-			return erase(const_iterator(first), const_iterator(last));
-		}
-		iterator remove(const_iterator pos)requires strong_movable<value_type> {
+		iterator remove(iterator pos)requires strong_movable<value_type> {
 			if (pos < begin() || pos >= end()) {
 				throw std::out_of_range("position out of range");
 			}
-			pointer dest = const_cast<pointer>(pos.base());
+			pointer dest = pos.base();
 			pointer last = raw_end() - 1;
 
 			if (dest != last) //only move if they're not the same elem
 				*dest = std::move(*last);//switch places with the last element, don't shift everything
 			std::destroy_at(last);//delete the end
-
 			--mSize;
 
-			return iterator(dest);
-		}
-		iterator remove(iterator pos)requires strong_movable<value_type> {
-			return remove(const_iterator(pos));
+			return dest;
 		}
 		template <typename UnaryPred>
 		iterator remove(UnaryPred predicate) requires strong_movable<value_type> {

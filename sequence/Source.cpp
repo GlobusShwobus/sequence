@@ -66,22 +66,16 @@ int main() {
 		std::cout << "\n asses2: " << asses2.size() << " " << asses2.capacity();
 	}
 	{
-		//Sequence<asstangle> asses2;
-		//auto it = asses2.begin();
-		//if (it.base() == nullptr) {
-		//	std::cout << "i am stupid\n";
-		//}
-		//it++;
+		//std::vector<int> ints = { 1,1,2,3,4,5,6 };
+		//auto it = ints.cbegin();
+		//ints.erase(it);
+		//std::cout << *it;
 
-		//std::vector<asstangle> asses2;
-		//auto it = asses2.end();
-		//if (it._Ptr == nullptr) {
-		//	std::cout << "i am stupid\n";
-		//}
-		//it++;
-
+		Sequence<int> ints = { 1,1,1,1,1,2,22,2 };
+		auto it = ints.cbegin();
+		ints.erase(it);
+		std::cout << *it;
 	}
-	
 	_CrtDumpMemoryLeaks();
 	return 0;
 
