@@ -104,14 +104,14 @@ namespace seq {
 	public:
 		//CONSTRUCTORS
 		constexpr Sequence()noexcept = default;
-		constexpr Sequence(size_type count) requires std::default_initializable<value_type> {
+		Sequence(size_type count) requires std::default_initializable<value_type> {
 			if (count == 0) return;
 			tryElemConstructAlloc(count, [](pointer p, size_type n) {
 				return std::uninitialized_default_construct_n(p, n);
 				}
 			);
 		}
-		constexpr Sequence(size_type count, const_reference value) requires std::copyable<value_type> {
+		Sequence(size_type count, const_reference value) requires std::copyable<value_type> {
 			if (count == 0)
 				return;
 			tryElemConstructAlloc(count, [&value](pointer p, size_type n) {
@@ -119,7 +119,7 @@ namespace seq {
 				}
 			);
 		}
-		constexpr Sequence(std::initializer_list<value_type> init) requires std::copyable<value_type> {
+		Sequence(std::initializer_list<value_type> init) requires std::copyable<value_type> {
 			if (init.size() == 0)
 				return;
 			tryElemConstructAlloc(init.size(), [init](pointer p, size_type n) {
@@ -127,7 +127,7 @@ namespace seq {
 				}
 			);
 		}
-		constexpr Sequence(const Sequence& rhs) requires std::copyable<value_type> {
+		Sequence(const Sequence& rhs) requires std::copyable<value_type> {
 			if (!rhs.isValid())
 				return;
 			tryElemConstructAlloc(rhs.size(), [&rhs](pointer p, size_type n) {
@@ -144,7 +144,7 @@ namespace seq {
 			rhs.swap(*this);
 			return *this;
 		}
-		constexpr Sequence& operator=(std::initializer_list<value_type> ilist) requires std::copyable<value_type>{
+		Sequence& operator=(std::initializer_list<value_type> ilist) requires std::copyable<value_type>{
 			if (ilist.size() == 0) {
 				objDestroyAll();
 				//memFree(); for the sake of future allocation, just don't free mem
