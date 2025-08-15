@@ -162,19 +162,19 @@ namespace seq {
 
 		//ACCESS
 		constexpr reference front() {
-			assert(msize > first_index);
+			assert(mSize > first_index);
 			return array[first_index];
 		}
 		constexpr const_reference front()const {
-			assert(msize > first_index);
+			assert(mSize > first_index);
 			return array[first_index];
 		}
 		constexpr reference back() {
-			assert(msize > first_index);
+			assert(mSize > first_index);
 			return array[mSize - 1];
 		}
 		constexpr const_reference back()const {
-			assert(msize > first_index);
+			assert(mSize > first_index);
 			return array[mSize - 1];
 		}
 		constexpr reference operator[](size_type index) {
