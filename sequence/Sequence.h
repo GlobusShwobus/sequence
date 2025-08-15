@@ -22,26 +22,26 @@ namespace seq {
 		static constexpr std::size_t first_index = 0;
 	public:
 		//type names
-		using type = Sequence<T>;
-		using value_type = T;
-		using pointer = T*;
-		using const_pointer = const T*;
-		using reference = T&;
+		using type            = Sequence<T>;
+		using value_type      = T;
+		using pointer         = T*;
+		using const_pointer   = const T*;
+		using reference       = T&;
 		using const_reference = const T&;
-		using size_type = std::size_t;
+		using size_type       = std::size_t;
 		using difference_type = std::ptrdiff_t;
 
-		using iterator = Iterator;
-		using const_iterator = Const_Iterator;
+		using iterator        = Iterator;
+		using const_iterator  = Const_Iterator;
 		//#################################################
 
 	private:
 		//the important shit
-		void moveAlloc(size_type count) {
+		void tryReAllocate(size_type count) {
 			pointer moved = static_cast<pointer>(::operator new(count * sizeof(value_type)));
+			pointer initialized = moved;
 			pointer begin = raw_begin();
 			pointer end = raw_end();
-			pointer initialized = moved;
 			
 			try {
 				if constexpr (std::is_nothrow_move_constructible_v<value_type>) {
@@ -52,6 +52,8 @@ namespace seq {
 				}
 			}
 			catch (...) {
+				//this case should never happen but will only happen if T constructors themselves are faulty.
+				//i can't save you if your move semantis are declared noexcept but do actually hick up. in which case nothing is indeed thrown. the whole thing gets shut down
 				std::destroy(moved, initialized);
 				::operator delete(moved);
 				throw;
@@ -64,13 +66,6 @@ namespace seq {
 			cap = count;
 			//mSize unchanged
 		}
-		void tryReAllocate(size_type count) {
-			pointer tempMem = static_cast<pointer>(::operator new(count * sizeof(value_type)));
-			pointer initalizedTail = tempMem;
-
-
-		}
-
 		template <typename Construct>
 		void tryElemConstructAlloc(size_type count, Construct construct) {
 			pointer tempMem = static_cast<pointer>(::operator new(count * sizeof(value_type)));
@@ -78,15 +73,15 @@ namespace seq {
 
 			try {
 				initalizedTail = construct(tempMem, count);
+				array = std::exchange(tempMem, nullptr);
+				mSize = count;
+				cap = count;
 			}
 			catch (...) {
 				std::destroy(tempMem, initalizedTail);
 				::operator delete(tempMem);
 				throw;
 			}
-			array = std::exchange(tempMem, nullptr);
-			mSize = count;
-			cap = count;
 		}
 		//#################################################
 		
@@ -215,56 +210,48 @@ namespace seq {
 
 		//MODIFICATION
 		template <typename U>
-		void push_back(U&& value) requires std::convertible_to<U, value_type>&& std::constructible_from<value_type, U&&> {
+		void push_back(U&& value) requires std::convertible_to<U, value_type>&& std::constructible_from<value_type, U&&> {//implicit copy or move requirement
 			if (mSize == cap)
-				moveAlloc(growthFactor(cap));
+				tryReAllocate(growthFactor(cap));
 			std::construct_at(raw_end(), std::forward<U>(value));
 			++mSize;
 		}
 		template<typename... Args> void emplace_back(Args&&... args) requires std::constructible_from<value_type, Args&&...>{
 			if (mSize == cap)
-				moveAlloc(growthFactor(cap));
+				tryReAllocate(growthFactor(cap));
 			std::construct_at(raw_end(), std::forward<Args>(args)...);//safe to throw on fail, array not modified
 			++mSize;
 		}
 		void pop_back()noexcept {
 			if (mSize > 0) {
-				array[mSize - 1].~value_type();
+				std::destroy_at(raw_end() - 1);
 				--mSize;
 			}
 		}
-		void resize(size_type count) {
-			if (count == mSize) {
-				return;
-			}
-			//if count is less than size, cut off the tail
-			if (count < mSize) {
-				std::destroy(raw_begin() + count, raw_end());
-				mSize = count;
-				return;
-			}
-			// if T is default constructible, may need moveAlloc in which case need movable
-			if constexpr (std::default_initializable<value_type>) {
-				if (count > cap) {
-					static_assert(std::move_constructible<value_type>, "T must be move constructible");
-					moveAlloc(growthFactor(count));
-				}
+		void resize_shrink(size_type count)noexcept {
+			if (count >= mSize) return;//when shrinking if count is more, simply no OP
 
-				size_type diff = count - mSize;
-				pointer newElemStart = raw_end();
-				pointer newElemEnd = newElemStart;
+			std::destroy(raw_begin() + count, raw_end());
+			mSize = count;
+		}
+		void resize_grow(size_type count)requires std::default_initializable<value_type> && strong_movable<value_type> {
+			if (count <= mSize) return;//if count is less than current size, then logically no grow no op
 
-				try {
-					newElemEnd = std::uninitialized_default_construct_n(newElemStart, diff);
-				}
-				catch (...) {
-					std::destroy(newElemStart, newElemEnd);
-					throw;
-				}
+			if (count > cap) {
+				tryReAllocate(growthFactor(count));
+			}
+
+			pointer startAt = raw_end();
+			pointer ifFailurePosition = startAt;
+			size_type amount = count - mSize;
+
+			try {
+				ifFailurePosition = std::uninitialized_default_construct_n(startAt, amount);
 				mSize = count;
 			}
-			else {
-				static_assert(std::default_initializable<value_type>, "T must be default initializable");
+			catch (...) {
+				std::destroy(startAt, ifFailurePosition);
+				throw;
 			}
 		}
 		iterator erase(iterator pos)requires strong_movable<value_type> {
@@ -374,12 +361,12 @@ namespace seq {
 
 		void reserve(size_type newCap) requires strong_movable<value_type> {
 			if (newCap > cap) {
-				moveAlloc(newCap);
+				tryReAllocate(newCap);
 			}
 		}
 		void shrinkToFit() requires strong_movable<value_type> {
 			if (cap > mSize) {
-				moveAlloc(size());
+				tryReAllocate(size());
 			}
 		}
 		void clear() noexcept {
