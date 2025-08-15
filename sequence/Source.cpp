@@ -32,19 +32,19 @@ int main() {
 		Stopwatch clock;
 		std::vector<asstangle> vec;
 		for (int i = 0; i < 10000; i++) {
-			vec.push_back({ i + i,i + i + i,i + i + i + i,i + i + i + i + i });
+			vec.emplace_back( i + i,i + i + i,i + i + i + i,i + i + i + i + i );
 		}
 		auto time = clock.MarkMicroSec();
-		std::cout << "vec 10k empalcebacks, always triggers realloc??? don't know: " << time.count() << " microsec\n";
+		std::cout << "vec 10k pushbacks, always triggers realloc??? don't know: " << time.count() << " microsec\n";
 	}
 	{
 		Stopwatch clock;
 		Sequence<asstangle> seq;
 		for (int i = 0; i < 10000; i++) {
-			seq.push_back({i + i, i + i + i, i + i + i + i, i + i + i + i + i});
+			seq.emplace_back(i + i, i + i + i, i + i + i + i, i + i + i + i + i);
 		}
 		auto time = clock.MarkMicroSec();
-		std::cout << "seq 10k resize, always triggers realloc: " << time.count() << " microsec\n";
+		std::cout << "seq 10k pushbacks, always triggers realloc: " << time.count() << " microsec\n";
 	}
 	{
 		Sequence<asstangle> asses(69, {1,2,3,4});
@@ -64,17 +64,6 @@ int main() {
 		std::cout << "\n asses: " << asses.size() << " " << asses.capacity();
 		asses2 = asses;
 		std::cout << "\n asses2: " << asses2.size() << " " << asses2.capacity();
-	}
-	{
-		//std::vector<int> ints = { 1,1,2,3,4,5,6 };
-		//auto it = ints.cbegin();
-		//ints.erase(it);
-		//std::cout << *it;
-
-		Sequence<int> ints = { 1,1,1,1,1,2,22,2 };
-		auto it = ints.cbegin();
-		ints.erase(it);
-		std::cout << *it;
 	}
 	_CrtDumpMemoryLeaks();
 	return 0;

@@ -18,6 +18,8 @@ namespace seq {
 		//forward declares
 		class Iterator;
 		class Const_Iterator;
+
+		static constexpr std::size_t first_index = 0;
 	public:
 		//type names
 		using type = Sequence<T>;
@@ -159,12 +161,28 @@ namespace seq {
 		//#################################################
 
 		//ACCESS
+		constexpr reference front() {
+			assert(mSize > first_index);
+			return array[first_index];
+		}
+		constexpr const_reference front()const {
+			assert(mSize > first_index);
+			return array[first_index];
+		}
+		constexpr reference back() {
+			assert(mSize > first_index);
+			return array[mSize - 1];
+		}
+		constexpr const_reference back()const {
+			assert(mSize > first_index);
+			return array[mSize - 1];
+		}
 		constexpr reference operator[](size_type index) {
-			assert(index < mSize && "out of range position");
+			assert(index < mSize);
 			return array[index];
 		}
 		constexpr const_reference operator[](size_type index)const {
-			assert(index < mSize && "out of range position");
+			assert(index < mSize);
 			return array[index]; 
 		}
 		constexpr reference at(size_type pos) {
@@ -260,7 +278,7 @@ namespace seq {
 			array[mSize - 1].~value_type();//end is dangling, delete it
 			--mSize;
 			
-			return (pBase == raw_end()) ? raw_end() : pBase;
+			return (pBase >= raw_end()) ? raw_end() : pBase;
 		}
 		iterator erase(iterator first, iterator last)requires strong_movable<value_type> {
 			if (first < begin() || first >= last || last >= end()) {
@@ -285,7 +303,7 @@ namespace seq {
 			std::destroy(destroyBegin, endPtr);//remove the dangling tail end
 			mSize -= (endPtr - destroyBegin);
 
-			return (pfirst == raw_end()) ? raw_end() : pfirst;
+			return (pfirst >= raw_end()) ? raw_end() : pfirst;
 		}
 		iterator remove(iterator pos)requires strong_movable<value_type> {
 			if (pos < begin() || pos >= end()) {
@@ -299,7 +317,7 @@ namespace seq {
 			std::destroy_at(last);//delete the end
 			--mSize;
 
-			return dest;
+			return (dest >= raw_end()) ? raw_end() : dest;
 		}
 		template <typename UnaryPred>
 		iterator remove(UnaryPred predicate) requires strong_movable<value_type> {
@@ -330,7 +348,7 @@ namespace seq {
 				mSize = newSize;
 			}
 
-			return end();
+			return raw_end();
 		}
 
 		constexpr void swap(Sequence& rhs)noexcept {
