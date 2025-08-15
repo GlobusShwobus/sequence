@@ -28,43 +28,49 @@ int main() {
 		asstangle() = default;
 		asstangle(int a, int b, int c, int l) :x(a), y(b), asswidth(c), assheight(l) {}
 	};
+
 	{
 		Stopwatch clock;
 		std::vector<asstangle> vec;
 		for (int i = 0; i < 10000; i++) {
-			vec.emplace_back( i + i,i + i + i,i + i + i + i,i + i + i + i + i );
+			asstangle ass(i, i, i, i);
+			vec.push_back(ass);
 		}
 		auto time = clock.MarkMicroSec();
-		std::cout << "vec 10k pushbacks, always triggers realloc??? don't know: " << time.count() << " microsec\n";
+		std::cout << "vec 10k push_back with copy: " << time.count() << " microsec\n";
 	}
 	{
 		Stopwatch clock;
 		Sequence<asstangle> seq;
 		for (int i = 0; i < 10000; i++) {
-			seq.emplace_back(i + i, i + i + i, i + i + i + i, i + i + i + i + i);
+			asstangle ass(i, i, i, i);
+			seq.push_back(ass);
 		}
 		auto time = clock.MarkMicroSec();
-		std::cout << "seq 10k pushbacks, always triggers realloc: " << time.count() << " microsec\n";
+		std::cout << "seq 10k push_back with copy: " << time.count() << " microsec\n";
 	}
 	{
-		Sequence<asstangle> asses(69, {1,2,3,4});
-		asses.pop_back();
-		asses.pop_back();
-		asses.pop_back();
-		asses.pop_back();
-
-		Sequence<asstangle> asses2 = asses;
-		std::cout << "\n asses2: " << asses2.size() << " " << asses2.capacity();
-
-		asses2.resize(420);
-		std::cout << "\n asses2: " << asses2.size() << " " << asses2.capacity();
-		asses = asses2;
-		std::cout << "\n asses: " << asses.size() << " " << asses.capacity();
-		asses.resize(15);
-		std::cout << "\n asses: " << asses.size() << " " << asses.capacity();
-		asses2 = asses;
-		std::cout << "\n asses2: " << asses2.size() << " " << asses2.capacity();
+		Stopwatch clock;
+		std::vector<asstangle> vec;
+		for (int i = 0; i < 10000; i++) {
+			asstangle ass(i, i, i, i);
+			vec.push_back(std::move(ass));
+		}
+		auto time = clock.MarkMicroSec();
+		std::cout << "vec 10k push_back with move: " << time.count() << " microsec\n";
 	}
+	{
+		Stopwatch clock;
+		Sequence<asstangle> seq;
+		for (int i = 0; i < 10000; i++) {
+			asstangle ass(i, i, i, i);
+			seq.push_back(std::move(ass));
+		}
+		auto time = clock.MarkMicroSec();
+		std::cout << "seq 10k push_back with move: " << time.count() << " microsec\n";
+	}
+
+
 	_CrtDumpMemoryLeaks();
 	return 0;
 

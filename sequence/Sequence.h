@@ -64,6 +64,13 @@ namespace seq {
 			cap = count;
 			//mSize unchanged
 		}
+		void tryReAllocate(size_type count) {
+			pointer tempMem = static_cast<pointer>(::operator new(count * sizeof(value_type)));
+			pointer initalizedTail = tempMem;
+
+
+		}
+
 		template <typename Construct>
 		void tryElemConstructAlloc(size_type count, Construct construct) {
 			pointer tempMem = static_cast<pointer>(::operator new(count * sizeof(value_type)));
@@ -127,7 +134,7 @@ namespace seq {
 				}
 			);
 		}
-		Sequence(const Sequence& rhs) requires std::copyable<value_type> {
+		Sequence(const Sequence<value_type>& rhs) requires std::copyable<value_type> {
 			if (!rhs.isValid())
 				return;
 			tryElemConstructAlloc(rhs.size(), [&rhs](pointer p, size_type n) {
@@ -135,12 +142,12 @@ namespace seq {
 				}
 			);
 		}
-		constexpr Sequence(Sequence&& rhs)noexcept {//shallow copy theft, no need for requirements
+		constexpr Sequence(Sequence<value_type>&& rhs)noexcept {//shallow copy theft, no need for requirements
 			array = std::exchange(rhs.array, nullptr);
 			mSize = std::exchange(rhs.mSize, 0);
 			cap = std::exchange(rhs.cap, 0);
 		}
-		Sequence& operator=(Sequence rhs)noexcept {//AND THE LORD SAID LET THERE BE LIGHT
+		Sequence& operator=(Sequence<value_type> rhs)noexcept {//AND THE LORD SAID LET THERE BE LIGHT
 			rhs.swap(*this);
 			return *this;
 		}
@@ -207,20 +214,12 @@ namespace seq {
 		//#################################################
 
 		//MODIFICATION
-		void push_back(const_reference value) requires std::copyable<value_type> {
+		template <typename U>
+		void push_back(U&& value) requires std::convertible_to<U, value_type>&& std::constructible_from<value_type, U&&> {
 			if (mSize == cap)
 				moveAlloc(growthFactor(cap));
-			std::construct_at(raw_end(), value);//safe to throw on fail, array not modified
+			std::construct_at(raw_end(), std::forward<U>(value));
 			++mSize;
-		}
-		void push_back(T&& value) requires strong_movable<value_type> {
-			if (mSize == cap)
-				moveAlloc(growthFactor(cap));
-			std::construct_at(raw_end(), std::move(value));//safe to throw on fail, array not modified
-			++mSize;
-		}
-		void emplace_back(T&& value) requires strong_movable<value_type> {
-			push_back(std::move(value));
 		}
 		template<typename... Args> void emplace_back(Args&&... args) requires std::constructible_from<value_type, Args&&...>{
 			if (mSize == cap)
@@ -373,12 +372,12 @@ namespace seq {
 		constexpr size_type size()const noexcept     { return mSize; }
 		constexpr size_type capacity()const noexcept { return cap; }
 
-		void reserve(size_type newCap) requires std::movable<value_type> {
+		void reserve(size_type newCap) requires strong_movable<value_type> {
 			if (newCap > cap) {
 				moveAlloc(newCap);
 			}
 		}
-		void shrinkToFit() requires std::movable<value_type> {
+		void shrinkToFit() requires strong_movable<value_type> {
 			if (cap > mSize) {
 				moveAlloc(size());
 			}
