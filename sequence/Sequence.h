@@ -7,7 +7,7 @@
 
 namespace seq {
 	template <typename T>
-	concept strong_movable = std::movable<T>&& std::is_nothrow_move_constructible_v<T>&& std::is_nothrow_move_assignable_v<T>;
+	concept strong_movable = std::movable<T> && std::is_nothrow_move_constructible_v<T> && std::is_nothrow_move_assignable_v<T>;
 
 	template <typename T>
 	class Sequence {
@@ -18,8 +18,6 @@ namespace seq {
 		//forward declares
 		class Iterator;
 		class Const_Iterator;
-
-		static constexpr std::size_t first_index = 0ull;
 
 		static constexpr std::size_t first_index = 0;
 	public:
@@ -44,7 +42,7 @@ namespace seq {
 			pointer initialized = moved;
 			pointer begin = raw_begin();
 			pointer end = raw_end();
-			
+
 			try {
 				if constexpr (std::is_nothrow_move_constructible_v<value_type>) {
 					initialized = std::uninitialized_move(begin, end, moved);
@@ -60,7 +58,7 @@ namespace seq {
 				::operator delete(moved);
 				throw;
 			}
-			
+
 			std::destroy(begin, end);
 			::operator delete(array);
 
@@ -86,7 +84,7 @@ namespace seq {
 			}
 		}
 		//#################################################
-		
+
 		//the convenience
 		void memFree()noexcept {
 			if (array) {
@@ -95,7 +93,7 @@ namespace seq {
 				cap = 0;
 			}
 		}
-		void objDestroyAll()noexcept { 
+		void objDestroyAll()noexcept {
 			if (mSize > 0) {
 				std::destroy(raw_begin(), raw_end());
 				mSize = 0;
@@ -148,7 +146,7 @@ namespace seq {
 			rhs.swap(*this);
 			return *this;
 		}
-		Sequence& operator=(std::initializer_list<value_type> ilist) requires std::copyable<value_type>{
+		Sequence& operator=(std::initializer_list<value_type> ilist) requires std::copyable<value_type> {
 			if (ilist.size() == 0) {
 				objDestroyAll();
 				//memFree(); for the sake of future allocation, just don't free mem
@@ -158,7 +156,7 @@ namespace seq {
 			temp.swap(*this);
 			return *this;
 		}
-		constexpr ~Sequence()noexcept {//putting a requirement here will cause a misleading error, noexcept is implict anyway but fuck it
+		~Sequence()noexcept {//putting a requirement here will cause a misleading error, noexcept is implict anyway but fuck it
 			objDestroyAll();
 			memFree();
 		}
@@ -187,7 +185,7 @@ namespace seq {
 		}
 		constexpr const_reference operator[](size_type index)const {
 			assert(index < mSize);
-			return array[index]; 
+			return array[index];
 		}
 		constexpr reference at(size_type pos) {
 			if (pos >= size())
@@ -204,9 +202,9 @@ namespace seq {
 
 		constexpr iterator       begin()                  { return { array }; }
 		constexpr iterator       end()                    { return { array + mSize }; }
-		constexpr const_iterator begin()const             { return { array };  }
-		constexpr const_iterator end()const               { return { array + mSize };  }
-		constexpr const_iterator cbegin()const            { return { array };  }
+		constexpr const_iterator begin()const             { return { array }; }
+		constexpr const_iterator end()const               { return { array + mSize }; }
+		constexpr const_iterator cbegin()const            { return { array }; }
 		constexpr const_iterator cend()const              { return { array + mSize }; }
 		//#################################################
 
@@ -218,7 +216,7 @@ namespace seq {
 			std::construct_at(raw_end(), std::forward<U>(value));
 			++mSize;
 		}
-		template<typename... Args> void emplace_back(Args&&... args) requires std::constructible_from<value_type, Args&&...>{
+		template<typename... Args> void emplace_back(Args&&... args) requires std::constructible_from<value_type, Args&&...> {
 			if (mSize == cap)
 				tryReAllocate(growthFactor(cap));
 			std::construct_at(raw_end(), std::forward<Args>(args)...);//safe to throw on fail, array not modified
@@ -241,7 +239,7 @@ namespace seq {
 			--arrayEnd;//last valid element
 			std::destroy_at(arrayEnd);//destroy the last valid element, oldEnd is now one off the end
 			--mSize;
-			
+
 			return (eraseElem == arrayEnd) ? arrayEnd : eraseElem;
 		}
 		iterator erase(iterator first, iterator last)requires strong_movable<value_type> {
@@ -271,10 +269,10 @@ namespace seq {
 			pointer removeElem = pos.base();
 			pointer arrayBegin = raw_begin();
 			pointer arrayEnd = raw_end();
-			
+
 			if (removeElem < arrayBegin || removeElem > arrayEnd) throw std::out_of_range("position out of range");
 			if (removeElem == arrayEnd) return arrayEnd;
-			
+
 			--arrayEnd;
 			*removeElem = std::move(*arrayEnd);//slightly less op than swap
 			std::destroy_at(arrayEnd);
@@ -282,8 +280,8 @@ namespace seq {
 			return (removeElem == arrayEnd) ? arrayEnd : removeElem;
 		}
 		template <typename UnaryPred>
-		iterator remove(UnaryPred predicate) requires strong_movable<value_type>  && std::predicate<UnaryPred, const_reference>{
-	
+		iterator remove(UnaryPred predicate) requires strong_movable<value_type> && std::predicate<UnaryPred, const_reference> {
+
 			pointer arrayBegin = raw_begin();
 			pointer arrayEnd = raw_end();
 			pointer current = raw_begin();
@@ -477,8 +475,8 @@ namespace seq {
 		constexpr bool operator==(const self_type& rhs)const noexcept { return ptr == rhs.ptr; }
 		constexpr std::strong_ordering operator<=>(const self_type& rhs)const noexcept { return ptr <=> rhs.ptr; }
 
-		constexpr Const_Iterator(pointer p) :ptr(p) { assert(ptr != nullptr && "Iterator constructed from nullptr!");  }
-		constexpr Const_Iterator(const Iterator& rp) :ptr(rp.base()) { assert(ptr != nullptr && "Iterator constructed from nullptr!"); }
+		constexpr Const_Iterator(pointer p) :ptr(p) { assert(ptr != nullptr && "Iterator constructed from nullptr!"); }
+		constexpr Const_Iterator(const Iterator& rp) : ptr(rp.base()) { assert(ptr != nullptr && "Iterator constructed from nullptr!"); }
 		constexpr pointer base()const noexcept { return ptr; }
 	private:
 		pointer ptr = nullptr;
