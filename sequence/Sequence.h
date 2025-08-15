@@ -101,15 +101,15 @@ namespace seq {
 		//#################################################
 	public:
 		//CONSTRUCTORS
-		Sequence()noexcept = default;
-		Sequence(size_type count) requires std::default_initializable<value_type> {
+		constexpr Sequence()noexcept = default;
+		constexpr Sequence(size_type count) requires std::default_initializable<value_type> {
 			if (count == 0) return;
 			tryElemConstructAlloc(count, [](pointer p, size_type n) {
 				return std::uninitialized_default_construct_n(p, n);
 				}
 			);
 		}
-		Sequence(size_type count, const_reference value) requires std::copyable<value_type> {
+		constexpr Sequence(size_type count, const_reference value) requires std::copyable<value_type> {
 			if (count == 0)
 				return;
 			tryElemConstructAlloc(count, [&value](pointer p, size_type n) {
@@ -117,7 +117,7 @@ namespace seq {
 				}
 			);
 		}
-		Sequence(std::initializer_list<value_type> init) requires std::copyable<value_type> {
+		constexpr Sequence(std::initializer_list<value_type> init) requires std::copyable<value_type> {
 			if (init.size() == 0)
 				return;
 			tryElemConstructAlloc(init.size(), [init](pointer p, size_type n) {
@@ -125,7 +125,7 @@ namespace seq {
 				}
 			);
 		}
-		Sequence(const Sequence& rhs) requires std::copyable<value_type> {
+		constexpr Sequence(const Sequence& rhs) requires std::copyable<value_type> {
 			if (!rhs.isValid())
 				return;
 			tryElemConstructAlloc(rhs.size(), [&rhs](pointer p, size_type n) {
@@ -138,11 +138,11 @@ namespace seq {
 			mSize = std::exchange(rhs.mSize, 0);
 			cap = std::exchange(rhs.cap, 0);
 		}
-		Sequence& operator=(Sequence rhs)noexcept {//AND THE LORD SAID LET THERE BE LIGHT
+		constexpr Sequence& operator=(Sequence rhs)noexcept {//AND THE LORD SAID LET THERE BE LIGHT
 			rhs.swap(*this);
 			return *this;
 		}
-		Sequence& operator=(std::initializer_list<value_type> ilist) requires std::copyable<value_type>{
+		constexpr Sequence& operator=(std::initializer_list<value_type> ilist) requires std::copyable<value_type>{
 			if (ilist.size() == 0) {
 				objDestroyAll();
 				//memFree(); for the sake of future allocation, just don't free mem
@@ -152,7 +152,7 @@ namespace seq {
 			temp.swap(*this);
 			return *this;
 		}
-		~Sequence()noexcept {//putting a requirement here will cause a misleading error, noexcept is implict anyway but fuck it
+		constexpr ~Sequence()noexcept {//putting a requirement here will cause a misleading error, noexcept is implict anyway but fuck it
 			objDestroyAll();
 			memFree();
 		}
@@ -189,22 +189,22 @@ namespace seq {
 		//#################################################
 
 		//MODIFICATION
-		void push_back(const_reference value) requires std::copyable<value_type> {
+		constexpr void push_back(const_reference value) requires std::copyable<value_type> {
 			if (mSize == cap)
 				moveAlloc(growthFactor(cap));
 			std::construct_at(raw_end(), value);//safe to throw on fail, array not modified
 			++mSize;
 		}
-		void push_back(T&& value) requires strong_movable<value_type> {
+		constexpr void push_back(T&& value) requires strong_movable<value_type> {
 			if (mSize == cap)
 				moveAlloc(growthFactor(cap));
 			std::construct_at(raw_end(), std::move(value));//safe to throw on fail, array not modified
 			++mSize;
 		}
-		void emplace_back(T&& value) requires strong_movable<value_type> {
+		constexpr void emplace_back(T&& value) requires strong_movable<value_type> {
 			push_back(std::move(value));
 		}
-		template<typename... Args> void emplace_back(Args&&... args) requires std::constructible_from<value_type, Args&&...>{
+		template<typename... Args> constexpr void emplace_back(Args&&... args) requires std::constructible_from<value_type, Args&&...>{
 			if (mSize == cap)
 				moveAlloc(growthFactor(cap));
 			std::construct_at(raw_end(), std::forward<Args>(args)...);//safe to throw on fail, array not modified
@@ -250,7 +250,7 @@ namespace seq {
 				static_assert(std::default_initializable<value_type>, "T must be default initializable");
 			}
 		}
-		iterator erase(iterator pos)requires strong_movable<value_type> {
+		iterator erase(iterator& pos)requires strong_movable<value_type> {
 			if (pos < begin() || pos >= end()) {
 				throw std::out_of_range("position out of range");
 			}
@@ -259,7 +259,7 @@ namespace seq {
 			std::move(pBase + 1, raw_end(), pBase);//move all elements 1 space
 			array[mSize - 1].~value_type();//end is dangling, delete it
 			--mSize;
-			
+
 			return (pBase == raw_end()) ? raw_end() : pBase;
 		}
 		iterator erase(iterator first, iterator last)requires strong_movable<value_type> {

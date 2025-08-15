@@ -19,64 +19,21 @@ int main() {
 	_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
 	_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
 
-	class asstangle {
-		int x;
-		int y;
-		int asswidth;
-		int assheight;
-	public:
-		asstangle() = default;
-		asstangle(int a, int b, int c, int l) :x(a), y(b), asswidth(c), assheight(l) {}
-	};
-	{
-		Stopwatch clock;
-		std::vector<asstangle> vec;
-		for (int i = 0; i < 10000; i++) {
-			vec.push_back({ i + i,i + i + i,i + i + i + i,i + i + i + i + i });
-		}
-		auto time = clock.MarkMicroSec();
-		std::cout << "vec 10k empalcebacks, always triggers realloc??? don't know: " << time.count() << " microsec\n";
-	}
-	{
-		Stopwatch clock;
-		Sequence<asstangle> seq;
-		for (int i = 0; i < 10000; i++) {
-			seq.push_back({i + i, i + i + i, i + i + i + i, i + i + i + i + i});
-		}
-		auto time = clock.MarkMicroSec();
-		std::cout << "seq 10k resize, always triggers realloc: " << time.count() << " microsec\n";
-	}
-	{
-		Sequence<asstangle> asses(69, {1,2,3,4});
-		asses.pop_back();
-		asses.pop_back();
-		asses.pop_back();
-		asses.pop_back();
 
-		Sequence<asstangle> asses2 = asses;
-		std::cout << "\n asses2: " << asses2.size() << " " << asses2.capacity();
+	constexpr double constDouble = 5.2;
+	std::cout << "address: " << &constDouble << " value " << constDouble << '\n';
+	const double* constDoubleRuntime = &constDouble;
+	std::cout << "address: "<< constDoubleRuntime << " value "<<*constDoubleRuntime <<'\n';
+	double* whatAmINow = const_cast<double*>(constDoubleRuntime);
+	std::cout << "address: " << whatAmINow << " value " << *whatAmINow << '\n';
+	*whatAmINow = 420.0;
+	std::cout << "address: " << &constDouble << " value " << constDouble << '\n';
+	std::cout << "address: " << constDoubleRuntime << " value " << *constDoubleRuntime << '\n';
+	std::cout << "address: " << whatAmINow << " value " << *whatAmINow << '\n';
 
-		asses2.resize(420);
-		std::cout << "\n asses2: " << asses2.size() << " " << asses2.capacity();
-		asses = asses2;
-		std::cout << "\n asses: " << asses.size() << " " << asses.capacity();
-		asses.resize(15);
-		std::cout << "\n asses: " << asses.size() << " " << asses.capacity();
-		asses2 = asses;
-		std::cout << "\n asses2: " << asses2.size() << " " << asses2.capacity();
-	}
-	{
-		//std::vector<int> ints = { 1,1,2,3,4,5,6 };
-		//auto it = ints.cbegin();
-		//ints.erase(it);
-		//std::cout << *it;
 
-		Sequence<int> ints = { 1,1,1,1,1,2,22,2 };
-		auto it = ints.cbegin();
-		ints.erase(it);
-		std::cout << *it;
-	}
+
+
 	_CrtDumpMemoryLeaks();
 	return 0;
-
 }
