@@ -71,7 +71,20 @@ int main() {
 	}
 
 
+	constexpr double constDouble = 5.2;
+	std::cout << "address: " << &constDouble << " value " << constDouble << '\n';
+	const double* constDoubleRuntime = &constDouble;
+	std::cout << "address: "<< constDoubleRuntime << " value "<<*constDoubleRuntime <<'\n';
+	double* whatAmINow = const_cast<double*>(constDoubleRuntime);
+	std::cout << "address: " << whatAmINow << " value " << *whatAmINow << '\n';
+	*whatAmINow = 420.0;
+	std::cout << "address: " << &constDouble << " value " << constDouble << '\n';
+	std::cout << "address: " << constDoubleRuntime << " value " << *constDoubleRuntime << '\n';
+	std::cout << "address: " << whatAmINow << " value " << *whatAmINow << '\n';
+
+
+
+
 	_CrtDumpMemoryLeaks();
 	return 0;
-
 }

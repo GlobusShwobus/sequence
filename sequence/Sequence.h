@@ -19,6 +19,8 @@ namespace seq {
 		class Iterator;
 		class Const_Iterator;
 
+		static constexpr std::size_t first_index = 0ull;
+
 		static constexpr std::size_t first_index = 0;
 	public:
 		//type names
@@ -105,7 +107,7 @@ namespace seq {
 		//#################################################
 	public:
 		//CONSTRUCTORS
-		Sequence()noexcept = default;
+		constexpr Sequence()noexcept = default;
 		Sequence(size_type count) requires std::default_initializable<value_type> {
 			if (count == 0) return;
 			tryElemConstructAlloc(count, [](pointer p, size_type n) {
@@ -156,7 +158,7 @@ namespace seq {
 			temp.swap(*this);
 			return *this;
 		}
-		~Sequence()noexcept {//putting a requirement here will cause a misleading error, noexcept is implict anyway but fuck it
+		constexpr ~Sequence()noexcept {//putting a requirement here will cause a misleading error, noexcept is implict anyway but fuck it
 			objDestroyAll();
 			memFree();
 		}
