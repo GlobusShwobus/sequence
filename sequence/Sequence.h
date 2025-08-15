@@ -228,6 +228,108 @@ namespace seq {
 				--mSize;
 			}
 		}
+		iterator erase(iterator pos)requires strong_movable<value_type> {
+			pointer eraseElem = pos.base();
+			pointer arrayBegin = raw_begin();
+			pointer arrayEnd = raw_end();
+			if (eraseElem < arrayBegin || eraseElem > arrayEnd) throw std::out_of_range("position out of range");
+			if (eraseElem == arrayEnd) return arrayEnd;
+
+			std::move(eraseElem + 1, arrayEnd, eraseElem);//from -> till -> destination == eraseElem gets overwriten then destroyed
+			--arrayEnd;//last valid element
+			std::destroy_at(arrayEnd);//destroy the last valid element, oldEnd is now one off the end
+			--mSize;
+			
+			return (eraseElem == arrayEnd) ? arrayEnd : eraseElem;
+		}
+		iterator erase(iterator first, iterator last)requires strong_movable<value_type> {
+			pointer eraseFirst = first.base();
+			pointer eraseLast = last.base();
+			pointer arrayBegin = raw_begin();
+			pointer arrayEnd = raw_end();
+
+			if (eraseFirst < arrayBegin || eraseLast > arrayEnd) throw std::out_of_range("position out of range");
+			if (eraseFirst == eraseLast) return eraseLast;//if first and last are same element, then return
+
+			if (eraseLast == arrayEnd) {//if last is end, then it means we can simply erase the tail end
+				std::destroy(eraseFirst, eraseLast);
+				mSize = eraseFirst - arrayBegin;
+				return raw_end();
+			}
+			//else
+			std::move(eraseLast, arrayEnd, eraseFirst);
+			//math: size 25: destroy elem 5 to 10:: 5+(25-10) = 20, destroy 20 to 25. then mSize-=(25-20), reduce by 5
+			pointer destroyBegin = eraseFirst + (arrayEnd - eraseLast);
+			std::destroy(destroyBegin, arrayEnd);//remove the dangling tail end
+			mSize -= (arrayEnd - destroyBegin);
+
+			return eraseFirst;
+		}
+		iterator remove(iterator pos)requires strong_movable<value_type> {
+			pointer removeElem = pos.base();
+			pointer arrayBegin = raw_begin();
+			pointer arrayEnd = raw_end();
+			
+			if (removeElem < arrayBegin || removeElem > arrayEnd) throw std::out_of_range("position out of range");
+			if (removeElem == arrayEnd) return arrayEnd;
+			
+			--arrayEnd;
+			*removeElem = std::move(*arrayEnd);//slightly less op than swap
+			std::destroy_at(arrayEnd);
+			--mSize;
+			return (removeElem == arrayEnd) ? arrayEnd : removeElem;
+		}
+		template <typename UnaryPred>
+		iterator remove(UnaryPred predicate) requires strong_movable<value_type>  && std::predicate<UnaryPred, const_reference>{
+	
+			pointer arrayBegin = raw_begin();
+			pointer arrayEnd = raw_end();
+			pointer current = raw_begin();
+			pointer validLast = raw_end() - 1;
+
+			while (current <= validLast) {
+				if (predicate(*current)) {
+					*current = std::move(*validLast);
+					--validLast;
+				}
+				else {
+					++current;
+				}
+			}
+
+			pointer realOnePastEnd = validLast + 1;
+			size_type newSize = realOnePastEnd - arrayBegin;
+
+			if (newSize < size()) {
+				std::destroy(realOnePastEnd, arrayEnd);
+				mSize = newSize;
+			}
+
+			return realOnePastEnd;
+		}
+
+		constexpr void swap(Sequence& rhs)noexcept {
+			pointer tempArr = array;
+			array = rhs.array;
+			rhs.array = tempArr;
+
+			size_type tempSize = mSize;
+			mSize = rhs.mSize;
+			rhs.mSize = tempSize;
+
+			size_type tempCap = cap;
+			cap = rhs.cap;
+			rhs.cap = tempCap;
+		}
+		//#################################################
+
+
+		//CAPACITY
+		constexpr bool      isEmpty()const noexcept  { return mSize == 0; }
+		constexpr bool      isValid()const noexcept  { return array; }
+		constexpr size_type size()const noexcept     { return mSize; }
+		constexpr size_type capacity()const noexcept { return cap; }
+
 		void resize_shrink(size_type count)noexcept {
 			if (count >= mSize) return;//when shrinking if count is more, simply no OP
 
@@ -254,111 +356,6 @@ namespace seq {
 				throw;
 			}
 		}
-		iterator erase(iterator pos)requires strong_movable<value_type> {
-			if (pos < begin() || pos >= end()) {
-				throw std::out_of_range("position out of range");
-			}
-
-			pointer pBase = pos.base();
-			std::move(pBase + 1, raw_end(), pBase);//move all elements 1 space
-			array[mSize - 1].~value_type();//end is dangling, delete it
-			--mSize;
-			
-			return (pBase >= raw_end()) ? raw_end() : pBase;
-		}
-		iterator erase(iterator first, iterator last)requires strong_movable<value_type> {
-			if (first < begin() || first >= last || last >= end()) {
-				throw std::out_of_range("position out of range");
-			}
-			pointer pfirst = first.base();
-			pointer plast = last.base();
-
-			if (pfirst == plast)//if first and last is same element, then no op
-				return pfirst;
-
-			pointer endPtr = raw_end();
-			if (plast == endPtr) {//if last is one off the end, then delete start to end
-				std::destroy(pfirst, endPtr);
-				mSize = pfirst - raw_begin();
-				return raw_end();
-			}
-			//else if last is not one off the end
-			std::move(plast, endPtr, pfirst);//move all elements
-			//math: size 25: destroy elem 5 to 10:: 5+(25-10) = 20, destroy 20 to 25. then mSize-=(25-20), reduce by 5
-			pointer destroyBegin = pfirst + (endPtr - plast);
-			std::destroy(destroyBegin, endPtr);//remove the dangling tail end
-			mSize -= (endPtr - destroyBegin);
-
-			return (pfirst >= raw_end()) ? raw_end() : pfirst;
-		}
-		iterator remove(iterator pos)requires strong_movable<value_type> {
-			if (pos < begin() || pos >= end()) {
-				throw std::out_of_range("position out of range");
-			}
-			pointer dest = pos.base();
-			pointer last = raw_end() - 1;
-
-			if (dest != last) //only move if they're not the same elem
-				*dest = std::move(*last);//switch places with the last element, don't shift everything
-			std::destroy_at(last);//delete the end
-			--mSize;
-
-			return (dest >= raw_end()) ? raw_end() : dest;
-		}
-		template <typename UnaryPred>
-		iterator remove(UnaryPred predicate) requires strong_movable<value_type> {
-			pointer last = raw_end() - 1;
-			pointer current = raw_begin();
-
-			//if predicate is true, move last element to current then move the last pointer
-			while (current <= last) {
-				if (predicate(*current)) {
-					if (current == last) {
-						--last;
-						break;
-					}
-					else {
-						*current = std::move(*last);
-						--last;
-					}
-				}
-				else {
-					++current;
-				}
-			}
-			size_type newSize = last - raw_begin() + 1;//last began at last element, not one off the last, so here add it back
-
-			//bulk delete everything from last to end then apply new size
-			if (newSize < mSize) {
-				std::destroy(last + 1, raw_end());
-				mSize = newSize;
-			}
-
-			return raw_end();
-		}
-
-		constexpr void swap(Sequence& rhs)noexcept {
-			pointer tempArr = array;
-			array = rhs.array;
-			rhs.array = tempArr;
-
-			size_type tempSize = mSize;
-			mSize = rhs.mSize;
-			rhs.mSize = tempSize;
-
-			size_type tempCap = cap;
-			cap = rhs.cap;
-			rhs.cap = tempCap;
-		}
-		//#################################################
-
-
-		//CAPACITY
-		constexpr bool      isEmpty()const noexcept  { return mSize == 0; }
-		constexpr bool      isValid()const noexcept  { return array; }
-		constexpr size_type size()const noexcept     { return mSize; }
-		constexpr size_type capacity()const noexcept { return cap; }
-
 		void reserve(size_type newCap) requires strong_movable<value_type> {
 			if (newCap > cap) {
 				tryReAllocate(newCap);
