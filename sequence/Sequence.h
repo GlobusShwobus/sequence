@@ -18,6 +18,8 @@ namespace seq {
 		//forward declares
 		class Iterator;
 		class Const_Iterator;
+
+		static constexpr std::size_t first_index = 0ull;
 	public:
 		//type names
 		using type = Sequence<T>;
@@ -159,12 +161,28 @@ namespace seq {
 		//#################################################
 
 		//ACCESS
+		constexpr reference front() {
+			assert(msize > first_index);
+			return array[first_index];
+		}
+		constexpr const_reference front()const {
+			assert(msize > first_index);
+			return array[first_index];
+		}
+		constexpr reference back() {
+			assert(msize > first_index);
+			return array[mSize - 1];
+		}
+		constexpr const_reference back()const {
+			assert(msize > first_index);
+			return array[mSize - 1];
+		}
 		constexpr reference operator[](size_type index) {
-			assert(index < mSize && "out of range position");
+			assert(index < mSize);
 			return array[index];
 		}
 		constexpr const_reference operator[](size_type index)const {
-			assert(index < mSize && "out of range position");
+			assert(index < mSize);
 			return array[index]; 
 		}
 		constexpr reference at(size_type pos) {
@@ -189,22 +207,22 @@ namespace seq {
 		//#################################################
 
 		//MODIFICATION
-		constexpr void push_back(const_reference value) requires std::copyable<value_type> {
+		void push_back(const_reference value) requires std::copyable<value_type> {
 			if (mSize == cap)
 				moveAlloc(growthFactor(cap));
 			std::construct_at(raw_end(), value);//safe to throw on fail, array not modified
 			++mSize;
 		}
-		constexpr void push_back(T&& value) requires strong_movable<value_type> {
+		void push_back(T&& value) requires strong_movable<value_type> {
 			if (mSize == cap)
 				moveAlloc(growthFactor(cap));
 			std::construct_at(raw_end(), std::move(value));//safe to throw on fail, array not modified
 			++mSize;
 		}
-		constexpr void emplace_back(T&& value) requires strong_movable<value_type> {
+		void emplace_back(T&& value) requires strong_movable<value_type> {
 			push_back(std::move(value));
 		}
-		template<typename... Args> constexpr void emplace_back(Args&&... args) requires std::constructible_from<value_type, Args&&...>{
+		template<typename... Args> void emplace_back(Args&&... args) requires std::constructible_from<value_type, Args&&...>{
 			if (mSize == cap)
 				moveAlloc(growthFactor(cap));
 			std::construct_at(raw_end(), std::forward<Args>(args)...);//safe to throw on fail, array not modified
