@@ -99,8 +99,8 @@ namespace seq {
 				mSize = 0;
 			}
 		}
-		constexpr pointer raw_begin()const                     { return array; }
-		constexpr pointer raw_end()const                       { return array + mSize; }
+		constexpr pointer raw_begin()                          { return array; }
+		constexpr pointer raw_end()                            { return array + mSize; }
 		constexpr size_type growthFactor(size_type input)const { return input + (input / 2) + 1; }
 		//#################################################
 	public:
@@ -133,7 +133,7 @@ namespace seq {
 			if (!rhs.isValid())
 				return;
 			tryElemConstructAlloc(rhs.size(), [&rhs](pointer p, size_type n) {
-				return std::uninitialized_copy(rhs.raw_begin(), rhs.raw_end(), p);
+				return std::uninitialized_copy(rhs.begin(), rhs.end(), p);
 				}
 			);
 		}

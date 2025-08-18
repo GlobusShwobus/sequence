@@ -9,7 +9,13 @@
 #include <crtdbg.h>  
 #include <conio.h>
 
-
+auto f1() {
+	char a[] = { 's','e','c','r','e','t' };
+}
+auto f2() {
+	char a[6];
+	std::cout << a;
+}
 using namespace seq;
 int main() {
 	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
@@ -19,70 +25,18 @@ int main() {
 	_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
 	_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
 
-	class asstangle {
-		int x;
-		int y;
-		int asswidth;
-		int assheight;
-	public:
-		asstangle() = default;
-		asstangle(int a, int b, int c, int l) :x(a), y(b), asswidth(c), assheight(l) {}
-	};
-
 	{
 		Stopwatch clock;
-		std::vector<asstangle> vec;
-		for (int i = 0; i < 10000; i++) {
-			asstangle ass(i, i, i, i);
-			vec.push_back(ass);
+		Sequence<int> test;
+		for (int i = 0; i < 1000; i++) {
+			test.reserve(test.capacity() + 1);
 		}
 		auto time = clock.MarkMicroSec();
-		std::cout << "vec 10k push_back with copy: " << time.count() << " microsec\n";
-	}
-	{
-		Stopwatch clock;
-		Sequence<asstangle> seq;
-		for (int i = 0; i < 10000; i++) {
-			asstangle ass(i, i, i, i);
-			seq.push_back(ass);
-		}
-		auto time = clock.MarkMicroSec();
-		std::cout << "seq 10k push_back with copy: " << time.count() << " microsec\n";
-	}
-	{
-		Stopwatch clock;
-		std::vector<asstangle> vec;
-		for (int i = 0; i < 10000; i++) {
-			asstangle ass(i, i, i, i);
-			vec.push_back(std::move(ass));
-		}
-		auto time = clock.MarkMicroSec();
-		std::cout << "vec 10k push_back with move: " << time.count() << " microsec\n";
-	}
-	{
-		Stopwatch clock;
-		Sequence<asstangle> seq;
-		for (int i = 0; i < 10000; i++) {
-			asstangle ass(i, i, i, i);
-			seq.push_back(std::move(ass));
-		}
-		auto time = clock.MarkMicroSec();
-		std::cout << "seq 10k push_back with move: " << time.count() << " microsec\n";
-	}
+		std::cout << time.count() << '\n';
 
+		Sequence<int>int2 = test;
 
-	constexpr double constDouble = 5.2;
-	std::cout << "address: " << &constDouble << " value " << constDouble << '\n';
-	const double* constDoubleRuntime = &constDouble;
-	std::cout << "address: "<< constDoubleRuntime << " value "<<*constDoubleRuntime <<'\n';
-	double* whatAmINow = const_cast<double*>(constDoubleRuntime);
-	std::cout << "address: " << whatAmINow << " value " << *whatAmINow << '\n';
-	*whatAmINow = 420.0;
-	std::cout << "address: " << &constDouble << " value " << constDouble << '\n';
-	std::cout << "address: " << constDoubleRuntime << " value " << *constDoubleRuntime << '\n';
-	std::cout << "address: " << whatAmINow << " value " << *whatAmINow << '\n';
-
-
+	}
 
 
 	_CrtDumpMemoryLeaks();
