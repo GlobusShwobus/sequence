@@ -109,7 +109,7 @@ namespace seq {
 		Sequence(size_type count) requires std::default_initializable<value_type> {
 			if (count == 0) return;
 			tryElemConstructAlloc(count, [](pointer p, size_type n) {
-				return std::uninitialized_default_construct_n(p, n);
+				return std::uninitialized_value_construct_n(p, n);
 				}
 			);
 		}
@@ -348,7 +348,7 @@ namespace seq {
 			size_type amount = count - mSize;
 
 			try {
-				ifFailurePosition = std::uninitialized_default_construct_n(startAt, amount);
+				ifFailurePosition = std::uninitialized_value_construct_n(startAt, amount);
 				mSize = count;
 			}
 			catch (...) {
