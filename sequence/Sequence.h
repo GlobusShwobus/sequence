@@ -248,7 +248,7 @@ namespace seq {
 			pointer arrayBegin = raw_begin();
 			pointer arrayEnd = raw_end();
 
-			if (eraseFirst < arrayBegin || eraseFirst > arrayEnd || eraseLast < arrayBegin || eraseLast > arrayEnd) throw std::out_of_range("position out of range");
+			if (eraseFirst < arrayBegin || eraseFirst > arrayEnd || eraseLast < arrayBegin || eraseLast > arrayEnd || eraseLast < eraseFirst) throw std::out_of_range("position out of range");
 			if (eraseFirst == eraseLast || eraseFirst == arrayEnd) return arrayEnd;//if first and last are same element, then return
 
 			if (eraseLast == arrayEnd) {//if last is end, then it means we can simply erase the tail end
