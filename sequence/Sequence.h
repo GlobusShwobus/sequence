@@ -240,7 +240,7 @@ namespace seq {
 			std::destroy_at(arrayEnd);//destroy the last valid element, oldEnd is now one off the end
 			--mSize;
 
-			return (eraseElem == arrayEnd) ? arrayEnd : eraseElem;
+			return (eraseElem == raw_end()) ? raw_end() : eraseElem;
 		}
 		iterator erase(iterator first, iterator last)requires strong_movable<value_type> {
 			pointer eraseFirst = first.base();
